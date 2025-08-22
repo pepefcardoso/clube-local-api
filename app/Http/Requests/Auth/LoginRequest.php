@@ -16,7 +16,7 @@ class LoginRequest extends FormRequest
         return [
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
-            'user_type' => ['required', 'in:customer,business,staff'],
+            'user_type' => ['required', 'in:customer,business_user,staff_user'],
             'remember' => ['boolean'],
         ];
     }

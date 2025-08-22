@@ -14,7 +14,6 @@ class SetupTestDatabase extends Command
     {
         $this->info('Setting up test database...');
 
-        // Executar migrações
         Artisan::call('migrate:fresh', [
             '--env' => 'testing',
             '--force' => true,
@@ -22,7 +21,6 @@ class SetupTestDatabase extends Command
 
         $this->info('Migrations completed.');
 
-        // Executar seeders
         Artisan::call('db:seed', [
             '--env' => 'testing',
             '--class' => 'Database\\Seeders\\RolePermissionSeeder',

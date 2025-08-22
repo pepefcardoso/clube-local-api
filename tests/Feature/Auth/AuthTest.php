@@ -5,11 +5,10 @@ namespace Tests\Feature\Auth;
 use App\Enums\UserType;
 use App\Models\BusinessUser;
 use App\Models\Customer;
-use App\Models\StaffUser;
-use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Laravel\Sanctum\Sanctum;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class AuthTest extends TestCase
@@ -19,7 +18,7 @@ class AuthTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed(RolePermissionSeeder::class);
+        config(['sanctum.stateful' => []]);
     }
 
     /**
@@ -38,9 +37,7 @@ class AuthTest extends TestCase
     // TESTES DE REGISTO
     //======================================================================
 
-    /**
-     * @dataProvider userTypesProvider
-     */
+    #[DataProvider('userTypesProvider')]
     public function test_a_user_can_register_successfully(UserType $userType): void
     {
         // Arrange: Prepara os dados do utilizador a ser registado.
@@ -97,9 +94,7 @@ class AuthTest extends TestCase
     // TESTES DE LOGIN
     //======================================================================
 
-    /**
-     * @dataProvider userTypesProvider
-     */
+    #[DataProvider('userTypesProvider')]
     public function test_a_user_can_log_in_successfully(UserType $userType): void
     {
         // Arrange: Cria um utilizador do tipo especificado.
@@ -192,9 +187,7 @@ class AuthTest extends TestCase
     // TESTES DE ENDPOINTS AUTENTICADOS
     //======================================================================
 
-    /**
-     * @dataProvider userTypesProvider
-     */
+    #[DataProvider('userTypesProvider')]
     public function test_an_authenticated_user_can_get_their_profile(UserType $userType): void
     {
         // Arrange: Cria e autentica um utilizador.

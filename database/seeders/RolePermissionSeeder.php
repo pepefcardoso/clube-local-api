@@ -57,16 +57,16 @@ class RolePermissionSeeder extends Seeder
             }
         }
 
-        Role::create(['name' => CustomerRole::BASIC->value])
+        Role::firstOrCreate(['name' => CustomerRole::BASIC->value])
             ->givePermissionTo($permissionsByGroup['profile']);
 
-        Role::create(['name' => CustomerRole::PREMIUM->value])
+        Role::firstOrCreate(['name' => CustomerRole::PREMIUM->value])
             ->givePermissionTo($permissionsByGroup['profile']);
 
-        Role::create(['name' => BusinessUserRole::EMPLOYEE->value])
+        Role::firstOrCreate(['name' => BusinessUserRole::EMPLOYEE->value])
             ->givePermissionTo($permissionsByGroup['profile']);
 
-        Role::create(['name' => BusinessUserRole::MANAGER->value])
+        Role::firstOrCreate(['name' => BusinessUserRole::MANAGER->value])
             ->givePermissionTo([
                 ...$permissionsByGroup['profile'],
                 'view business users',
@@ -76,7 +76,7 @@ class RolePermissionSeeder extends Seeder
                 'manage business user status',
             ]);
 
-        Role::create(['name' => StaffRole::SUPPORT->value])
+        Role::firstOrCreate(['name' => StaffRole::SUPPORT->value])
             ->givePermissionTo([
                 ...$permissionsByGroup['profile'],
                 'view customers',
@@ -86,14 +86,16 @@ class RolePermissionSeeder extends Seeder
                 'view staff users',
             ]);
 
-        Role::create(['name' => StaffRole::ADMIN->value])
+        Role::firstOrCreate(['name' => StaffRole::ADMIN->value])
             ->givePermissionTo(Permission::all());
 
-        $this->command->info('✅ Roles and permissions seeded successfully!');
-        $this->command->table(['Role Type', 'Roles Created'], [
-            ['Customer', 'basic, premium'],
-            ['Business', 'employee, manager'],
-            ['Staff', 'support, admin'],
-        ]);
+        if ($this->command) {
+            $this->command->info('✅ Roles and permissions seeded successfully!');
+            $this->command->table(['Role Type', 'Roles Created'], [
+                ['Customer', 'basic, premium'],
+                ['Business', 'employee, manager'],
+                ['Staff', 'support, admin'],
+            ]);
+        }
     }
 }

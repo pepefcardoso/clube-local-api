@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\UserType;
 use Illuminate\Support\Facades\{Hash, RateLimiter};
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\PermissionRegistrar;
 
 class AuthService
 {
@@ -34,7 +35,7 @@ class AuthService
             ]);
         }
 
-        if (method_exists($user, 'is_active') && !$user->is_active) {
+        if (isset($user->is_active) && $user->is_active == false) {
             throw ValidationException::withMessages([
                 'email' => ['Your account has been deactivated.'],
             ]);
@@ -68,6 +69,8 @@ class AuthService
 
         $user->assignRole($userType->getDefaultRole());
 
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
         return $this->createTokenForUser($user, $userType);
     }
 
@@ -86,7 +89,7 @@ class AuthService
         $oldToken = $user->currentAccessToken();
         $userType = $user->getUserType();
 
-        $oldToken->delete();
+        $oldToken?->delete();
 
         return $this->createTokenForUser($user, $userType);
     }
