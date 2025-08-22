@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Enums\UserType;
-use App\Models\{Customer, BusinessUser, StaffUser};
 use Illuminate\Support\Facades\{Hash, RateLimiter};
 use Illuminate\Validation\ValidationException;
 
