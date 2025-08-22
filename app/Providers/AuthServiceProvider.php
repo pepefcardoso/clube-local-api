@@ -17,7 +17,6 @@ class AuthServiceProvider extends ServiceProvider
     {
         $this->registerPolicies();
 
-        // Gates simplificados - apenas para casos especiais
         Gate::define(
             'system:manage',
             fn($user) =>

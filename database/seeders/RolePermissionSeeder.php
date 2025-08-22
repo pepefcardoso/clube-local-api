@@ -6,8 +6,9 @@ use App\Enums\BusinessUserRole;
 use App\Enums\CustomerRole;
 use App\Enums\StaffRole;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class RolePermissionSeeder extends Seeder
 {
@@ -16,122 +17,83 @@ class RolePermissionSeeder extends Seeder
      */
     public function run(): void
     {
-        // Reset cached roles and permissions
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // Create permissions for each entity
-        $permissions = [
-            // Customer permissions
-            'view customers',
-            'create customers',
-            'update customers',
-            'delete customers',
-
-            // Business user permissions
-            'view business users',
-            'create business users',
-            'update business users',
-            'delete business users',
-            'manage business user roles',
-            'manage business user status',
-
-            // Staff user permissions
-            'view staff users',
-            'create staff users',
-            'update staff users',
-            'delete staff users',
-            'manage staff user roles',
-            'manage staff user status',
-            'manage system',
-
-            // General permissions
-            'view own profile',
-            'update own profile',
+        $permissionsByGroup = [
+            'profile' => [
+                'view own profile',
+                'update own profile',
+            ],
+            'customers' => [
+                'view customers',
+                'create customers',
+                'update customers',
+                'delete customers',
+            ],
+            'business_users' => [
+                'view business users',
+                'create business users',
+                'update business users',
+                'delete business users',
+                'manage business user roles',
+                'manage business user status',
+            ],
+            'staff_users' => [
+                'view staff users',
+                'create staff users',
+                'update staff users',
+                'delete staff users',
+                'manage staff user roles',
+                'manage staff user status',
+            ],
+            'system' => [
+                'manage system',
+            ],
         ];
 
-        foreach ($permissions as $permission) {
-            Permission::create(['name' => $permission]);
+        foreach ($permissionsByGroup as $group) {
+            foreach ($group as $permission) {
+                Permission::firstOrCreate(['name' => $permission]);
+            }
         }
 
-        // Create Customer Roles
-        $customerBasic = Role::create(['name' => CustomerRole::BASIC->value]);
-        $customerPremium = Role::create(['name' => CustomerRole::PREMIUM->value]);
+        Role::create(['name' => CustomerRole::BASIC->value])
+            ->givePermissionTo($permissionsByGroup['profile']);
 
-        // Assign permissions to customer roles
-        $customerBasic->givePermissionTo([
-            'view own profile',
-            'update own profile',
-        ]);
+        Role::create(['name' => CustomerRole::PREMIUM->value])
+            ->givePermissionTo($permissionsByGroup['profile']);
 
-        $customerPremium->givePermissionTo([
-            'view own profile',
-            'update own profile',
+        Role::create(['name' => BusinessUserRole::EMPLOYEE->value])
+            ->givePermissionTo($permissionsByGroup['profile']);
+
+        Role::create(['name' => BusinessUserRole::MANAGER->value])
+            ->givePermissionTo([
+                ...$permissionsByGroup['profile'],
+                'view business users',
+                'create business users',
+                'update business users',
+                'delete business users',
+                'manage business user status',
             ]);
 
-        // Create Business User Roles
-        $businessEmployee = Role::create(['name' => BusinessUserRole::EMPLOYEE->value]);
-        $businessManager = Role::create(['name' => BusinessUserRole::MANAGER->value]);
+        Role::create(['name' => StaffRole::SUPPORT->value])
+            ->givePermissionTo([
+                ...$permissionsByGroup['profile'],
+                'view customers',
+                'update customers',
+                'view business users',
+                'update business users',
+                'view staff users',
+            ]);
 
-        // Assign permissions to business user roles
-        $businessEmployee->givePermissionTo([
-            'view own profile',
-            'update own profile',
+        Role::create(['name' => StaffRole::ADMIN->value])
+            ->givePermissionTo(Permission::all());
+
+        $this->command->info('✅ Roles and permissions seeded successfully!');
+        $this->command->table(['Role Type', 'Roles Created'], [
+            ['Customer', 'basic, premium'],
+            ['Business', 'employee, manager'],
+            ['Staff', 'support, admin'],
         ]);
-
-        $businessManager->givePermissionTo([
-            'view own profile',
-            'update own profile',
-            'view business users',
-            'create business users',
-            'update business users',
-            'delete business users',
-            'manage business user status',
-        ]);
-
-        // Create Staff Roles
-        $staffSupport = Role::create(['name' => StaffRole::SUPPORT->value]);
-        $staffAdmin = Role::create(['name' => StaffRole::ADMIN->value]);
-
-        // Assign permissions to staff roles
-        $staffSupport->givePermissionTo([
-            'view own profile',
-            'update own profile',
-            'view customers',
-            'update customers',
-            'view business users',
-            'update business users',
-            'view staff users',
-        ]);
-
-        $staffAdmin->givePermissionTo([
-            'view own profile',
-            'update own profile',
-            // Full customer management
-            'view customers',
-            'create customers',
-            'update customers',
-            'delete customers',
-            // Full business user management
-            'view business users',
-            'create business users',
-            'update business users',
-            'delete business users',
-            'manage business user roles',
-            'manage business user status',
-            // Full staff management
-            'view staff users',
-            'create staff users',
-            'update staff users',
-            'delete staff users',
-            'manage staff user roles',
-            'manage staff user status',
-            'manage system',
-        ]);
-
-        $this->command->info('Roles and permissions seeded successfully!');
-        $this->command->info('Created roles:');
-        $this->command->info('- Customer: basic, premium');
-        $this->command->info('- Business: employee, manager');
-        $this->command->info('- Staff: support, admin');
     }
 }

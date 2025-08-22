@@ -5,11 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StaffUser\StoreStaffUserRequest;
 use App\Http\Requests\StaffUser\UpdateStaffUserRequest;
 use App\Http\Resources\StaffUserResource;
-use App\Http\Resources\Collections\StaffUserCollection;
 use App\Models\StaffUser;
 use App\Services\StaffUserService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class StaffUserController extends BaseApiController
 {
@@ -19,13 +19,10 @@ class StaffUserController extends BaseApiController
         $this->authorizeResource(StaffUser::class, 'staff_user');
     }
 
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): AnonymousResourceCollection
     {
         $staffUsers = $this->staffUserService->getStaffUsers($request);
-
-        return $this->collectionResponse(
-            new StaffUserCollection($staffUsers)
-        );
+        return StaffUserResource::collection($staffUsers);
     }
 
     public function store(StoreStaffUserRequest $request): JsonResponse
@@ -68,7 +65,7 @@ class StaffUserController extends BaseApiController
 
     public function register(StoreStaffUserRequest $request): JsonResponse
     {
-        $result = $this->staffUserService->createStaffUser($request->validated());
+        $result = $this->staffUserService->registerStaffUser($request->validated());
 
         return response()->json([
             'message' => 'Staff user registered successfully',

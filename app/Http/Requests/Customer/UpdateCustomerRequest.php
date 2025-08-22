@@ -14,7 +14,8 @@ class UpdateCustomerRequest extends BaseFormRequest
 
     public function rules(): array
     {
-        $userRules = $this->userRules(true, 'customers', 'customer');
+        $customer = $this->route('customer');
+        $userRules = $this->userRules(true, $customer->id);
         unset($userRules['password']);
 
         $specificRules = [

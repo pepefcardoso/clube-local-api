@@ -30,17 +30,14 @@ class UnifiedAuth
 
     private function checkRequirement($user, string $requirement): bool
     {
-        // Verifica habilidades do token
         if (str_contains($requirement, ':')) {
             return $user->tokenCan($requirement);
         }
 
-        // Verifica roles
         if (str_contains($requirement, '.')) {
             return $user->hasRole($requirement);
         }
 
-        // Verifica tipos de usuário
         $userTypes = [
             'customer' => \App\Models\Customer::class,
             'business' => \App\Models\BusinessUser::class,

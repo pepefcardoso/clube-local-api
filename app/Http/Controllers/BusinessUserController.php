@@ -5,11 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Requests\BusinessUser\StoreBusinessUserRequest;
 use App\Http\Requests\BusinessUser\UpdateBusinessUserRequest;
 use App\Http\Resources\BusinessUserResource;
-use App\Http\Resources\Collections\BusinessUserCollection;
 use App\Models\BusinessUser;
 use App\Services\BusinessUserService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class BusinessUserController extends BaseApiController
 {
@@ -19,13 +19,10 @@ class BusinessUserController extends BaseApiController
         $this->authorizeResource(BusinessUser::class, 'business_user');
     }
 
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): AnonymousResourceCollection
     {
         $businessUsers = $this->businessUserService->getBusinessUsers($request);
-
-        return $this->collectionResponse(
-            new BusinessUserCollection($businessUsers)
-        );
+        return BusinessUserResource::collection($businessUsers);
     }
 
     public function store(StoreBusinessUserRequest $request): JsonResponse

@@ -5,11 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Customer\StoreCustomerRequest;
 use App\Http\Requests\Customer\UpdateCustomerRequest;
 use App\Http\Resources\CustomerResource;
-use App\Http\Resources\Collections\CustomerCollection;
 use App\Models\Customer;
 use App\Services\CustomerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class CustomerController extends BaseApiController
 {
@@ -19,13 +19,10 @@ class CustomerController extends BaseApiController
         $this->authorizeResource(Customer::class, 'customer');
     }
 
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): AnonymousResourceCollection
     {
         $customers = $this->customerService->getCustomers($request);
-
-        return $this->collectionResponse(
-            new CustomerCollection($customers)
-        );
+        return CustomerResource::collection($customers);
     }
 
     public function store(StoreCustomerRequest $request): JsonResponse

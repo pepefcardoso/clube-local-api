@@ -4,11 +4,12 @@ namespace App\Models;
 
 use App\Enums\BusinessUserRole;
 use App\Traits\HasFiltering;
+use App\Traits\HasUserTypeAuthorization;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class BusinessUser extends User
 {
-    use HasFactory, HasFiltering;
+    use HasFactory, HasFiltering, HasUserTypeAuthorization;
 
     protected $table = 'business_users';
 

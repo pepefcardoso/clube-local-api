@@ -14,7 +14,8 @@ class UpdateStaffUserRequest extends BaseFormRequest
 
     public function rules(): array
     {
-        $userRules = $this->userRules(true, 'staff_users', 'staff_user');
+        $staffUser = $this->route('staff_user');
+        $userRules = $this->userRules(true, $staffUser->id);
 
         $specificRules = [
             'is_active' => ['sometimes', 'boolean'],

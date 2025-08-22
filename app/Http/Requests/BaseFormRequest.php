@@ -9,7 +9,6 @@ use Illuminate\Validation\Rules\Password;
 
 abstract class BaseFormRequest extends FormRequest
 {
-    // Por padrão, autorização será feita via policies
     public function authorize(): bool
     {
         return true;
@@ -55,6 +54,10 @@ abstract class BaseFormRequest extends FormRequest
         return match (static::class) {
             \App\Http\Requests\Customer\StoreCustomerRequest::class,
             \App\Http\Requests\Customer\UpdateCustomerRequest::class => 'customers',
+            \App\Http\Requests\BusinessUser\StoreBusinessUserRequest::class,
+            \App\Http\Requests\BusinessUser\UpdateBusinessUserRequest::class => 'business_users',
+            \App\Http\Requests\StaffUser\StoreStaffUserRequest::class,
+            \App\Http\Requests\StaffUser\UpdateStaffUserRequest::class => 'staff_users',
             default => 'users',
         };
     }

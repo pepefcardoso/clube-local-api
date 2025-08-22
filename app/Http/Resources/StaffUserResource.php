@@ -20,8 +20,6 @@ class StaffUserResource extends JsonResource
             'email' => $this->email,
             'phone' => $this->when(isset($this->phone), $this->phone),
             'is_active' => $this->when(isset($this->is_active), (bool) $this->is_active),
-            'roles' => $this->whenLoaded('roles', fn() => $this->getRoleNames()->toArray(), $this->getRoleNames()->toArray()),
-            'is_admin' => method_exists($this, 'isAdmin') ? (bool) $this->isAdmin() : $this->hasRole('admin'),
             'created_at' => $this->created_at?->toDateTimeString(),
             'updated_at' => $this->updated_at?->toDateTimeString(),
         ];

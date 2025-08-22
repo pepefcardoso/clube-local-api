@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\BusinessUser;
+use Illuminate\Http\Request;
 
 class BusinessUserService extends BaseUserService
 {
@@ -16,14 +17,33 @@ class BusinessUserService extends BaseUserService
         return ['is_active' => true];
     }
 
-    public function toggleStatus(BusinessUser $user): BusinessUser
+    public function registerBusinessUser(array $data): array
     {
-        $user->update(['is_active' => !$user->is_active]);
+        return $this->registerUser($data);
+    }
 
-        if (!$user->is_active) {
-            $user->tokens()->delete();
-        }
+    public function getBusinessUsers(Request $request)
+    {
+        return $this->getUsers($request);
+    }
 
-        return $user;
+    public function getBusinessUser(BusinessUser $businessUser)
+    {
+        return $this->getUser($businessUser);
+    }
+
+    public function createBusinessUser(array $data)
+    {
+        return $this->createUser($data);
+    }
+
+    public function updateBusinessUser(BusinessUser $businessUser, array $data)
+    {
+        return $this->updateUser($businessUser, $data);
+    }
+
+    public function deleteBusinessUser(BusinessUser $businessUser)
+    {
+        return $this->deleteUser($businessUser);
     }
 }

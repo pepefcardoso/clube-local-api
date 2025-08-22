@@ -3,91 +3,48 @@
 namespace App\Services;
 
 use App\Models\StaffUser;
-use App\Models\Customer;
-use App\Models\BusinessUser;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 
-class StaffUserService
+
+class StaffUserService extends BaseUserService
 {
-    public function getStaffUsers(Request $request): LengthAwarePaginator
+    protected function getModel(): string
     {
-        return StaffUser::query()
-            ->with('roles:id,name')
-            ->filter($request)
-            ->when(!$request->has('sort'), fn($q) => $q->latest())
-            ->paginate($request->get('per_page', 15));
+        return StaffUser::class;
     }
 
-    public function getStaffUser(StaffUser $staffUser): StaffUser
+    protected function getDefaultData(): array
     {
-        return $staffUser->load('roles', 'permissions');
+        return ['is_active' => true];
     }
 
-    public function createStaffUser(array $data): StaffUser
+    public function registerStaffUser(array $data): array
     {
-        $data['password'] = Hash::make($data['password']);
-
-        $staffUser = StaffUser::create($data);
-
-        return $staffUser->load('roles');
+        return $this->registerUser($data);
     }
 
-    public function updateStaffUser(StaffUser $staffUser, array $data): StaffUser
+    public function getStaffUsers(Request $request)
     {
-        if (isset($data['password'])) {
-            $data['password'] = Hash::make($data['password']);
-        }
-
-        if (Auth::user()->id === $staffUser->id) {
-            $data = collect($data)->only(['name', 'phone'])->toArray();
-        }
-
-        $staffUser->update($data);
-
-        return $staffUser->load('roles');
+        return $this->getUsers($request);
     }
 
-    public function deleteStaffUser(StaffUser $staffUser): bool
+    public function getStaffUser(StaffUser $staffUser)
     {
-        $staffUser->tokens()->delete();
-
-        return $staffUser->delete();
+        return $this->getUser($staffUser);
     }
 
-    public function activateUser(StaffUser $staffUser): StaffUser
+    public function createStaffUser(array $data)
     {
-        $staffUser->update(['is_active' => true]);
-
-        return $staffUser;
+        return $this->createUser($data);
     }
 
-    public function deactivateUser(StaffUser $staffUser): StaffUser
+    public function updateStaffUser(StaffUser $staffUser, array $data)
     {
-        $staffUser->update(['is_active' => false]);
-        $staffUser->tokens()->delete();
-
-        return $staffUser;
+        return $this->updateUser($staffUser, $data);
     }
 
-    public function getDashboardData(): array
+    public function deleteStaffUser(StaffUser $staffUser)
     {
-        return [
-            'statistics' => [
-                'total_customers' => Customer::count(),
-                'active_business_users' => BusinessUser::where('is_active', true)->count(),
-                'total_companies' => BusinessUser::distinct('company_name')->count('company_name'),
-                'active_staff' => StaffUser::where('is_active', true)->count(),
-                'recent_logins' => StaffUser::whereNotNull('last_login_at')
-                    ->where('last_login_at', '>=', now()->subDays(7))
-                    ->count(),
-            ],
-            'recent_activity' => StaffUser::whereNotNull('last_login_at')
-                ->orderBy('last_login_at', 'desc')
-                ->limit(10)
-                ->get(['id', 'name', 'email', 'last_login_at', 'department']),
-        ];
+        return $this->deleteUser($staffUser);
     }
 }

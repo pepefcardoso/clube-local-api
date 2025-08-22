@@ -14,7 +14,8 @@ class UpdateBusinessUserRequest extends BaseFormRequest
 
     public function rules(): array
     {
-        $userRules = $this->userRules(true, 'business_users', 'business_user');
+        $businessUser = $this->route('business_user');
+        $userRules = $this->userRules(true, $businessUser->id);
 
         $specificRules = [
             'is_active' => ['sometimes', 'boolean'],

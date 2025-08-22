@@ -11,7 +11,6 @@ class AuthService
 {
     public function login(string $email, string $password, string $userType, bool $remember = false): array
     {
-        // Rate limiting
         $key = $email . '|' . request()->ip();
         if (RateLimiter::tooManyAttempts($key, 5)) {
             throw ValidationException::withMessages([
@@ -36,7 +35,6 @@ class AuthService
             ]);
         }
 
-        // Verifica se usuário está ativo (para business e staff)
         if (method_exists($user, 'is_active') && !$user->is_active) {
             throw ValidationException::withMessages([
                 'email' => ['Your account has been deactivated.'],
@@ -45,7 +43,6 @@ class AuthService
 
         RateLimiter::clear($key);
 
-        // Cria token
         $abilities = $user->getTokenAbilities();
         $expiresAt = $remember ? now()->addDays(30) : now()->addDay();
 
@@ -70,7 +67,6 @@ class AuthService
         $userModel = $userType->getModelClass();
         $user = $userModel::create($data);
 
-        // Assign default role
         $user->assignRole($userType->getDefaultRole());
 
         return $this->createTokenForUser($user, $userType);
@@ -91,7 +87,6 @@ class AuthService
         $oldToken = $user->currentAccessToken();
         $userType = $user->getUserType();
 
-        // Delete old token
         $oldToken->delete();
 
         return $this->createTokenForUser($user, $userType);
@@ -127,7 +122,6 @@ class AuthService
             'name' => $user->name,
             'email' => $user->email,
             'type' => $user->getUserType()->value,
-            'roles' => $user->getRoleNames()->toArray(),
             'permissions' => $user->getAllPermissions()->pluck('name')->toArray(),
             'abilities' => $user->getTokenAbilities(),
         ];

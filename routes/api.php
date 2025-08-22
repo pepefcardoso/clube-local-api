@@ -4,8 +4,6 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\{AuthController, CustomerController, BusinessUserController, StaffUserController};
 
 Route::prefix('v1')->name('api.v1.')->group(function () {
-
-    // Authentication routes
     Route::prefix('auth')->name('auth.')->group(function () {
         Route::post('login', [AuthController::class, 'login'])->name('login');
         Route::post('register', [AuthController::class, 'register'])->name('register');
@@ -18,25 +16,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         });
     });
 
-    Route::middleware(['auth:sanctum', \App\Http\Middleware\UnifiedAuth::class])->group(function () {
+    Route::middleware(['auth:sanctum'])->group(function () {
+        Route::apiResource('customers', CustomerController::class);
 
-        // Customer routes
-        Route::apiResource('customers', CustomerController::class)
-            ->middleware('staff:read|customer:read')
-            ->except(['store']);
-        Route::post('customers', [CustomerController::class, 'store'])
-            ->middleware('staff:admin');
+        Route::apiResource('business-users', BusinessUserController::class);
 
-        // Business User routes
-        Route::apiResource('business-users', BusinessUserController::class)
-            ->middleware('business:read|staff:read');
-        Route::post('business-users/{business_user}/toggle-status', [BusinessUserController::class, 'toggleStatus'])
-            ->middleware('business:manage|staff:admin');
+        Route::apiResource('staff-users', StaffUserController::class);
 
-        // Staff User routes
-        Route::apiResource('staff-users', StaffUserController::class)
-            ->middleware('staff:read');
-        Route::get('staff-users/dashboard', [StaffUserController::class, 'dashboard'])
-            ->middleware('staff:admin');
+        Route::get('dashboard', [StaffUserController::class, 'dashboard'])
+            ->middleware('unified.auth:staff.admin');
     });
 });
