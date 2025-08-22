@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Enums\UserType;
-use Illuminate\Support\Facades\{Auth, Hash, RateLimiter};
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\{Hash, RateLimiter};
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 use Spatie\Permission\PermissionRegistrar;
 
 class AuthService
@@ -76,27 +78,55 @@ class AuthService
 
     public function logout($user): void
     {
-        $user->currentAccessToken()?->delete();
+        $this->deleteCurrentUserToken($user);
     }
 
     public function logoutAll($user): void
     {
+        // Delete all tokens for this user
         $user->tokens()->delete();
     }
 
     public function refresh($user): array
     {
-        $oldToken = $user->currentAccessToken();
         $userType = $user->getUserType();
 
-        $oldToken?->delete();
+        // Delete the current token
+        $this->deleteCurrentUserToken($user);
 
+        // Create a new token
         return $this->createTokenForUser($user, $userType);
     }
 
     public function me($user): array
     {
         return $this->formatUserData($user);
+    }
+
+    private function deleteCurrentUserToken($user): void
+    {
+        $request = app(Request::class);
+        $bearerToken = $request->bearerToken();
+
+        if (!$bearerToken) {
+            return;
+        }
+
+        // Parse the token
+        $tokenParts = explode('|', $bearerToken);
+        if (count($tokenParts) !== 2) {
+            return;
+        }
+
+        [$id, $token] = $tokenParts;
+        $hashedToken = hash('sha256', $token);
+
+        // Find and delete the token
+        PersonalAccessToken::where('id', $id)
+            ->where('token', $hashedToken)
+            ->where('tokenable_type', get_class($user))
+            ->where('tokenable_id', $user->id)
+            ->delete();
     }
 
     private function createTokenForUser($user, UserType $userType): array

@@ -4,42 +4,31 @@ namespace App\Policies;
 
 use App\Models\StaffUser;
 use App\Models\User;
-use App\Enums\StaffRole;
 
-class StaffUserPolicy
+class StaffUserPolicy extends BasePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user instanceof StaffUser;
+        return $this->isStaff($user);
     }
 
     public function view(User $user, StaffUser $staffUser): bool
     {
-        if ($user instanceof StaffUser && $user->id === $staffUser->id) {
-            return true;
-        }
-
-        return $user instanceof StaffUser && $user->hasRole(StaffRole::ADMIN->value);
+        return $this->isSelfOrAdmin($user, $staffUser);
     }
 
     public function create(User $user): bool
     {
-        return $user instanceof StaffUser && $user->hasRole(StaffRole::ADMIN->value);
+        return $this->isAdmin($user);
     }
 
     public function update(User $user, StaffUser $staffUser): bool
     {
-        if ($user instanceof StaffUser && $user->id === $staffUser->id) {
-            return true;
-        }
-
-        return $user instanceof StaffUser && $user->hasRole(StaffRole::ADMIN->value);
+        return $this->isSelfOrAdmin($user, $staffUser);
     }
 
     public function delete(User $user, StaffUser $staffUser): bool
     {
-        return $user instanceof StaffUser
-            && $user->hasRole(StaffRole::ADMIN->value)
-            && $user->id !== $staffUser->id;
+        return $this->isAdmin($user) && $user->id !== $staffUser->id;
     }
 }

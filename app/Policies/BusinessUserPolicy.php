@@ -6,15 +6,16 @@ use App\Models\BusinessUser;
 use App\Models\User;
 use App\Enums\BusinessUserRole;
 
-class BusinessUserPolicy
+class BusinessUserPolicy extends BasePolicy
 {
+    protected function isBusinessManager(User $user): bool
+    {
+        return $user instanceof BusinessUser && $user->hasRole(BusinessUserRole::MANAGER->value);
+    }
+
     public function viewAny(User $user): bool
     {
-        if ($user instanceof \App\Models\StaffUser) {
-            return true;
-        }
-
-        return $user instanceof BusinessUser && $user->hasRole(BusinessUserRole::MANAGER->value);
+        return $this->isStaff($user) || $this->isBusinessManager($user);
     }
 
     public function view(User $user, BusinessUser $businessUser): bool
@@ -23,21 +24,12 @@ class BusinessUserPolicy
             return true;
         }
 
-        if ($user instanceof \App\Models\StaffUser) {
-            return true;
-        }
-
-        return $user instanceof BusinessUser
-            && $user->hasRole(BusinessUserRole::MANAGER->value);
+        return $this->isStaff($user) || $this->isBusinessManager($user);
     }
 
     public function create(User $user): bool
     {
-        if ($user instanceof \App\Models\StaffUser) {
-            return true;
-        }
-
-        return $user instanceof BusinessUser && $user->hasRole(BusinessUserRole::MANAGER->value);
+        return $this->isStaff($user) || $this->isBusinessManager($user);
     }
 
     public function update(User $user, BusinessUser $businessUser): bool
@@ -46,22 +38,15 @@ class BusinessUserPolicy
             return true;
         }
 
-        if ($user instanceof \App\Models\StaffUser) {
-            return true;
-        }
-
-        return $user instanceof BusinessUser
-            && $user->hasRole(BusinessUserRole::MANAGER->value);
+        return $this->isStaff($user) || $this->isBusinessManager($user);
     }
 
     public function delete(User $user, BusinessUser $businessUser): bool
     {
-        if ($user instanceof \App\Models\StaffUser) {
+        if ($this->isStaff($user)) {
             return true;
         }
 
-        return $user instanceof BusinessUser
-            && $user->hasRole(BusinessUserRole::MANAGER->value)
-            && $user->id !== $businessUser->id;
+        return $this->isBusinessManager($user) && $user->id !== $businessUser->id;
     }
 }
