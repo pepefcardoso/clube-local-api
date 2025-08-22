@@ -7,6 +7,7 @@ use App\Models\BusinessUser;
 use App\Models\Customer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\Auth;
 use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -179,8 +180,8 @@ class AuthTest extends TestCase
             'password' => 'wrong-password',
             'user_type' => 'customer',
         ])
-        ->assertStatus(422)
-        ->assertJsonPath('errors.email.0', 'Too many login attempts. Please try again later.');
+            ->assertStatus(422)
+            ->assertJsonPath('errors.email.0', 'Too many login attempts. Please try again later.');
     }
 
     //======================================================================
@@ -215,6 +216,8 @@ class AuthTest extends TestCase
             ->postJson(route('api.v1.auth.logout'))
             ->assertStatus(200);
 
+        Auth::logout();
+
         // Assert: O token não deve mais ser válido.
         $this->withToken($token)
             ->getJson(route('api.v1.auth.me'))
@@ -242,6 +245,8 @@ class AuthTest extends TestCase
             ->getJson(route('api.v1.auth.me'))
             ->assertStatus(200);
 
+        Auth::logout();
+
         // O token antigo deve ter sido invalidado.
         $this->withToken($oldToken)
             ->getJson(route('api.v1.auth.me'))
@@ -259,6 +264,8 @@ class AuthTest extends TestCase
         $this->withToken($token1)
             ->postJson(route('api.v1.auth.logout-all'))
             ->assertStatus(200);
+
+        Auth::logout();
 
         // Assert: Nenhum dos tokens deve ser mais válido.
         $this->withToken($token1)->getJson(route('api.v1.auth.me'))->assertStatus(401);

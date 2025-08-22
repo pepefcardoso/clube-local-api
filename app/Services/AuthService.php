@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Enums\UserType;
-use Illuminate\Support\Facades\{Hash, RateLimiter};
+use Illuminate\Support\Facades\{Auth, Hash, RateLimiter};
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\PermissionRegistrar;
 
