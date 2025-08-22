@@ -16,10 +16,10 @@ class AuthController extends BaseApiController
     public function login(LoginRequest $request): JsonResponse
     {
         $result = $this->authService->login(
-            email: $request->validated('email'),
-            password: $request->validated('password'),
-            userType: $request->validated('user_type'),
-            remember: $request->validated('remember', false)
+            email: $request->input('email'),
+            password: $request->input('password'),
+            userType: $request->input('user_type'),
+            remember: $request->input('remember', false)
         );
 
         return $this->successResponse($result, 'Login successful');
@@ -27,15 +27,15 @@ class AuthController extends BaseApiController
 
     public function register(Request $request): JsonResponse
     {
-        $request->validate([
+        $validatedData = $request->validate([
             'user_type' => 'required|in:customer,business_user,staff_user',
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:customers,email|unique:business_users,email|unique:staff_users,email',
             'password' => 'required|confirmed|min:8',
         ]);
 
-        $userType = UserType::from($request->user_type);
-        $result = $this->authService->register($request->validated(), $userType);
+        $userType = UserType::from($validatedData['user_type']);
+        $result = $this->authService->register($validatedData, $userType);
 
         return $this->successResponse($result, 'Registration successful', 201);
     }

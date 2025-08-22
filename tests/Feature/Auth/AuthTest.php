@@ -6,242 +6,269 @@ use App\Enums\UserType;
 use App\Models\BusinessUser;
 use App\Models\Customer;
 use App\Models\StaffUser;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
-uses(TestCase::class, RefreshDatabase::class, WithFaker::class);
+class AuthTest extends TestCase
+{
+    use RefreshDatabase, WithFaker;
 
-/**
- * Define o nosso dataset numa variável para ser reutilizada e para
- * satisfazer o analisador de código do editor.
- */
-$userTypesDataset = [
-    'customer' => [UserType::CUSTOMER],
-    'business_user' => [UserType::BUSINESS_USER],
-    'staff_user' => [UserType::STAFF_USER],
-];
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seed(RolePermissionSeeder::class);
+    }
 
-/**
- * Opcional: Ainda podemos registar como um dataset partilhado se quisermos usá-lo
- * noutros ficheiros de teste com ->with('user_types').
- */
-dataset('user_types', $userTypesDataset);
+    /**
+     * Dataset para os tipos de utilizador
+     */
+    public static function userTypesProvider(): array
+    {
+        return [
+            'customer' => [UserType::CUSTOMER],
+            'business_user' => [UserType::BUSINESS_USER],
+            'staff_user' => [UserType::STAFF_USER],
+        ];
+    }
 
-//======================================================================
-// TESTES DE REGISTO
-//======================================================================
+    //======================================================================
+    // TESTES DE REGISTO
+    //======================================================================
 
-test('a user can register successfully', function (UserType $userType) {
-    // Arrange: Prepara os dados do utilizador a ser registado.
-    $password = 'Password123';
-    $userData = [
-        'name' => $this->faker->name,
-        'email' => $this->faker->unique()->safeEmail,
-        'password' => $password,
-        'password_confirmation' => $password,
-        'user_type' => $userType->value,
-    ];
+    /**
+     * @dataProvider userTypesProvider
+     */
+    public function test_a_user_can_register_successfully(UserType $userType): void
+    {
+        // Arrange: Prepara os dados do utilizador a ser registado.
+        $password = 'Password123';
+        $userData = [
+            'name' => $this->faker->name,
+            'email' => $this->faker->unique()->safeEmail,
+            'password' => $password,
+            'password_confirmation' => $password,
+            'user_type' => $userType->value,
+        ];
 
-    // Act: Faz uma requisição POST para a rota de registo.
-    $response = $this->postJson(route('api.v1.auth.register'), $userData);
+        // Act: Faz uma requisição POST para a rota de registo.
+        $response = $this->postJson(route('api.v1.auth.register'), $userData);
 
-    // Assert: Verifica se a resposta e o estado da base de dados estão corretos.
-    $response->assertStatus(201)
-        ->assertJsonStructure([
-            'message',
-            'data' => [
-                'user' => ['id', 'name', 'email', 'type'],
-                'token',
-                'expires_at',
-                'abilities',
-            ],
-        ])
-        ->assertJsonPath('data.user.email', $userData['email'])
-        ->assertJsonPath('data.user.type', $userType->value);
+        // Assert: Verifica se a resposta e o estado da base de dados estão corretos.
+        $response->assertStatus(201)
+            ->assertJsonStructure([
+                'message',
+                'data' => [
+                    'user' => ['id', 'name', 'email', 'type'],
+                    'token',
+                    'expires_at',
+                    'abilities',
+                ],
+            ])
+            ->assertJsonPath('data.user.email', $userData['email'])
+            ->assertJsonPath('data.user.type', $userType->value);
 
-    // Verifica se o utilizador foi criado na tabela correta.
-    $this->assertDatabaseHas($userType->getModelClass(), [
-        'email' => $userData['email'],
-    ]);
-})->with($userTypesDataset); // <-- ALTERAÇÃO AQUI
+        // Verifica se o utilizador foi criado na tabela correta.
+        $modelClass = $userType->getModelClass();
+        $tableName = (new $modelClass)->getTable();
 
-test('registration fails with validation errors', function () {
-    // Act: Tenta registar com dados em falta.
-    $response = $this->postJson(route('api.v1.auth.register'), [
-        'email' => 'not-an-email',
-        'password' => 'short',
-    ]);
-
-    // Assert: Verifica se a API retorna os erros de validação esperados.
-    $response->assertStatus(422)
-        ->assertJsonValidationErrors(['user_type', 'name', 'email', 'password']);
-});
-
-
-//======================================================================
-// TESTES DE LOGIN
-//======================================================================
-
-test('a user can log in successfully', function (UserType $userType) {
-    // Arrange: Cria um utilizador do tipo especificado.
-    $modelClass = $userType->getModelClass();
-    $user = $modelClass::factory()->create([
-        'password' => 'Password123',
-    ]);
-
-    // Act: Tenta fazer login com as credenciais corretas.
-    $response = $this->postJson(route('api.v1.auth.login'), [
-        'email' => $user->email,
-        'password' => 'Password123',
-        'user_type' => $userType->value,
-    ]);
-
-    // Assert: Verifica se o login foi bem-sucedido e retornou um token.
-    $response->assertStatus(200)
-        ->assertJsonStructure([
-            'message',
-            'data' => ['user', 'token', 'expires_at', 'abilities'],
+        $this->assertDatabaseHas($tableName, [
+            'email' => $userData['email'],
+            'name' => $userData['name'],
         ]);
-})->with($userTypesDataset); // <-- ALTERAÇÃO AQUI
+    }
 
-test('login fails with incorrect password', function () {
-    // Arrange: Cria um utilizador Customer.
-    $user = Customer::factory()->create([
-        'password' => 'Password123',
-    ]);
+    public function test_registration_fails_with_validation_errors(): void
+    {
+        // Act: Tenta registar com dados em falta.
+        $response = $this->postJson(route('api.v1.auth.register'), [
+            'email' => 'not-an-email',
+            'password' => 'short',
+        ]);
 
-    // Act: Tenta fazer login com a password errada.
-    $response = $this->postJson(route('api.v1.auth.login'), [
-        'email' => $user->email,
-        'password' => 'WrongPassword',
-        'user_type' => 'customer',
-    ]);
+        // Assert: Verifica se a API retorna os erros de validação esperados.
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['user_type', 'name', 'email', 'password']);
+    }
 
-    // Assert: Verifica a resposta de erro de validação.
-    $response->assertStatus(422)
-        ->assertJsonValidationErrors(['email']);
-});
+    //======================================================================
+    // TESTES DE LOGIN
+    //======================================================================
 
-test('login fails for inactive users', function () {
-    // Arrange: Cria um BusinessUser inativo.
-    $user = BusinessUser::factory()->create([
-        'is_active' => false,
-        'password' => 'Password123',
-    ]);
+    /**
+     * @dataProvider userTypesProvider
+     */
+    public function test_a_user_can_log_in_successfully(UserType $userType): void
+    {
+        // Arrange: Cria um utilizador do tipo especificado.
+        $modelClass = $userType->getModelClass();
+        $user = $modelClass::factory()->withPassword('Password123')->create();
 
-    // Act: Tenta fazer login.
-    $response = $this->postJson(route('api.v1.auth.login'), [
-        'email' => $user->email,
-        'password' => 'Password123',
-        'user_type' => 'business_user',
-    ]);
+        // Mapear os tipos de utilizador para os valores esperados pelo login
+        $userTypeMapping = [
+            'customer' => 'customer',
+            'business_user' => 'business',
+            'staff_user' => 'staff',
+        ];
 
-    // Assert: Verifica a mensagem de erro para contas desativadas.
-    $response->assertStatus(422)
-        ->assertJsonValidationErrorFor('email', 'errors')
-        ->assertJsonPath('errors.email.0', 'Your account has been deactivated.');
-});
+        $loginUserType = $userTypeMapping[$userType->value];
 
-test('login is rate limited after too many failed attempts', function () {
-    // Arrange: Cria um utilizador para o teste.
-    $user = Customer::factory()->create();
+        // Act: Tenta fazer login com as credenciais corretas.
+        $response = $this->postJson(route('api.v1.auth.login'), [
+            'email' => $user->email,
+            'password' => 'Password123',
+            'user_type' => $loginUserType,
+        ]);
 
-    // Act: Simula 5 tentativas de login falhadas.
-    for ($i = 0; $i < 5; $i++) {
+        // Assert: Verifica se o login foi bem-sucedido e retornou um token.
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'message',
+                'data' => ['user', 'token', 'expires_at', 'abilities'],
+            ]);
+    }
+
+    public function test_login_fails_with_incorrect_password(): void
+    {
+        // Arrange: Cria um utilizador Customer.
+        $user = Customer::factory()->withPassword('Password123')->create();
+
+        // Act: Tenta fazer login com a password errada.
+        $response = $this->postJson(route('api.v1.auth.login'), [
+            'email' => $user->email,
+            'password' => 'WrongPassword',
+            'user_type' => 'customer',
+        ]);
+
+        // Assert: Verifica a resposta de erro de validação.
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+    }
+
+    public function test_login_fails_for_inactive_users(): void
+    {
+        // Arrange: Cria um BusinessUser inativo.
+        $user = BusinessUser::factory()->inactive()->withPassword('Password123')->create();
+
+        // Act: Tenta fazer login.
+        $response = $this->postJson(route('api.v1.auth.login'), [
+            'email' => $user->email,
+            'password' => 'Password123',
+            'user_type' => 'business',
+        ]);
+
+        // Assert: Verifica a mensagem de erro para contas desativadas.
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+    }
+
+    public function test_login_is_rate_limited_after_too_many_failed_attempts(): void
+    {
+        // Arrange: Cria um utilizador para o teste.
+        $user = Customer::factory()->create();
+
+        // Act: Simula 5 tentativas de login falhadas.
+        for ($i = 0; $i < 5; $i++) {
+            $this->postJson(route('api.v1.auth.login'), [
+                'email' => $user->email,
+                'password' => 'wrong-password',
+                'user_type' => 'customer',
+            ])->assertStatus(422);
+        }
+
+        // Act & Assert: A 6ª tentativa deve ser bloqueada com uma mensagem de "Too many attempts".
         $this->postJson(route('api.v1.auth.login'), [
             'email' => $user->email,
             'password' => 'wrong-password',
             'user_type' => 'customer',
-        ])->assertStatus(422);
+        ])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.email.0', 'Too many login attempts. Please try again later.');
     }
 
-    // Act & Assert: A 6ª tentativa deve ser bloqueada com uma mensagem de "Too many attempts".
-    $this->postJson(route('api.v1.auth.login'), [
-        'email' => $user->email,
-        'password' => 'wrong-password',
-        'user_type' => 'customer',
-    ])
-    ->assertStatus(422)
-    ->assertJsonPath('errors.email.0', 'Too many login attempts. Please try again later.');
-});
+    //======================================================================
+    // TESTES DE ENDPOINTS AUTENTICADOS
+    //======================================================================
 
+    /**
+     * @dataProvider userTypesProvider
+     */
+    public function test_an_authenticated_user_can_get_their_profile(UserType $userType): void
+    {
+        // Arrange: Cria e autentica um utilizador.
+        $modelClass = $userType->getModelClass();
+        $user = $modelClass::factory()->create();
+        Sanctum::actingAs($user, ['*']);
 
-//======================================================================
-// TESTES DE ENDPOINTS AUTENTICADOS
-//======================================================================
+        // Act: Acede à rota 'me'.
+        $response = $this->getJson(route('api.v1.auth.me'));
 
-test('an authenticated user can get their profile', function (UserType $userType) {
-    // Arrange: Cria e autentica um utilizador.
-    $modelClass = $userType->getModelClass();
-    $user = $modelClass::factory()->create();
-    Sanctum::actingAs($user, ['*']);
+        // Assert: Verifica se os dados do utilizador correto são retornados.
+        $response->assertStatus(200)
+            ->assertJsonPath('data.id', $user->id)
+            ->assertJsonPath('data.email', $user->email);
+    }
 
-    // Act: Acede à rota 'me'.
-    $response = $this->getJson(route('api.v1.auth.me'));
+    public function test_an_authenticated_user_can_logout(): void
+    {
+        // Arrange: Cria um utilizador e obtém um token de acesso.
+        $user = Customer::factory()->create();
+        $token = $user->createToken('test-token')->plainTextToken;
 
-    // Assert: Verifica se os dados do utilizador correto são retornados.
-    $response->assertStatus(200)
-        ->assertJsonPath('data.id', $user->id)
-        ->assertJsonPath('data.email', $user->email);
-})->with($userTypesDataset); // <-- ALTERAÇÃO AQUI
+        // Act: Faz logout usando o token.
+        $this->withToken($token)
+            ->postJson(route('api.v1.auth.logout'))
+            ->assertStatus(200);
 
+        // Assert: O token não deve mais ser válido.
+        $this->withToken($token)
+            ->getJson(route('api.v1.auth.me'))
+            ->assertStatus(401); // Não autorizado
+    }
 
-test('an authenticated user can logout', function () {
-    // Arrange: Cria um utilizador e obtém um token de acesso.
-    $user = Customer::factory()->create();
-    $token = $user->createToken('test-token')->plainTextToken;
+    public function test_an_authenticated_user_can_refresh_their_token(): void
+    {
+        // Arrange: Cria um utilizador e obtém um token.
+        $user = Customer::factory()->create();
+        $oldToken = $user->createToken('test-token')->plainTextToken;
 
-    // Act: Faz logout usando o token.
-    $this->withToken($token)
-        ->postJson(route('api.v1.auth.logout'))
-        ->assertStatus(200);
+        // Act: Faz a requisição para a rota de refresh.
+        $response = $this->withToken($oldToken)
+            ->postJson(route('api.v1.auth.refresh'));
 
-    // Assert: O token não deve mais ser válido.
-    $this->withToken($token)
-        ->getJson(route('api.v1.auth.me'))
-        ->assertStatus(401); // Não autorizado
-});
+        // Assert: Verifica se um novo token foi retornado.
+        $response->assertStatus(200)
+            ->assertJsonStructure(['data' => ['token']]);
+        $newToken = $response->json('data.token');
+        $this->assertNotEquals($newToken, $oldToken);
 
-test('an authenticated user can refresh their token', function () {
-    // Arrange: Cria um utilizador e obtém um token.
-    $user = Customer::factory()->create();
-    $oldToken = $user->createToken('test-token')->plainTextToken;
+        // O novo token deve ser válido.
+        $this->withToken($newToken)
+            ->getJson(route('api.v1.auth.me'))
+            ->assertStatus(200);
 
-    // Act: Faz a requisição para a rota de refresh.
-    $response = $this->withToken($oldToken)
-        ->postJson(route('api.v1.auth.refresh'));
+        // O token antigo deve ter sido invalidado.
+        $this->withToken($oldToken)
+            ->getJson(route('api.v1.auth.me'))
+            ->assertStatus(401);
+    }
 
-    // Assert: Verifica se um novo token foi retornado.
-    $response->assertStatus(200)
-        ->assertJsonStructure(['data' => ['token']]);
-    $newToken = $response->json('data.token');
-    expect($newToken)->not->toBe($oldToken);
+    public function test_an_authenticated_user_can_logout_from_all_devices(): void
+    {
+        // Arrange: Cria um utilizador e dois tokens (simulando dois logins).
+        $user = Customer::factory()->create();
+        $token1 = $user->createToken('device1')->plainTextToken;
+        $token2 = $user->createToken('device2')->plainTextToken;
 
-    // O novo token deve ser válido.
-    $this->withToken($newToken)
-        ->getJson(route('api.v1.auth.me'))
-        ->assertStatus(200);
+        // Act: Usa um dos tokens para fazer logout de todos os dispositivos.
+        $this->withToken($token1)
+            ->postJson(route('api.v1.auth.logout-all'))
+            ->assertStatus(200);
 
-    // O token antigo deve ter sido invalidado.
-    $this->withToken($oldToken)
-        ->getJson(route('api.v1.auth.me'))
-        ->assertStatus(401);
-});
-
-test('an authenticated user can logout from all devices', function () {
-    // Arrange: Cria um utilizador e dois tokens (simulando dois logins).
-    $user = Customer::factory()->create();
-    $token1 = $user->createToken('device1')->plainTextToken;
-    $token2 = $user->createToken('device2')->plainTextToken;
-
-    // Act: Usa um dos tokens para fazer logout de todos os dispositivos.
-    $this->withToken($token1)
-        ->postJson(route('api.v1.auth.logout-all'))
-        ->assertStatus(200);
-
-    // Assert: Nenhum dos tokens deve ser mais válido.
-    $this->withToken($token1)->getJson(route('api.v1.auth.me'))->assertStatus(401);
-    $this->withToken($token2)->getJson(route('api.v1.auth.me'))->assertStatus(401);
-});
+        // Assert: Nenhum dos tokens deve ser mais válido.
+        $this->withToken($token1)->getJson(route('api.v1.auth.me'))->assertStatus(401);
+        $this->withToken($token2)->getJson(route('api.v1.auth.me'))->assertStatus(401);
+    }
+}
