@@ -2,60 +2,65 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserType;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Services\AuthService;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\Http\{JsonResponse, Request};
 
 class AuthController extends BaseApiController
 {
-    public function __construct(
-        private AuthService $authService
-    ) {
+    public function __construct(private AuthService $authService)
+    {
     }
 
     public function login(LoginRequest $request): JsonResponse
     {
         $result = $this->authService->login(
-            $request->email,
-            $request->password,
-            $request->user_type
+            email: $request->validated('email'),
+            password: $request->validated('password'),
+            userType: $request->validated('user_type'),
+            remember: $request->validated('remember', false)
         );
 
-        return response()->json([
-            'message' => 'Login successful',
-            ...$result
+        return $this->successResponse($result, 'Login successful');
+    }
+
+    public function register(Request $request): JsonResponse
+    {
+        $request->validate([
+            'user_type' => 'required|in:customer,business_user,staff_user',
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:customers,email|unique:business_users,email|unique:staff_users,email',
+            'password' => 'required|confirmed|min:8',
         ]);
+
+        $userType = UserType::from($request->user_type);
+        $result = $this->authService->register($request->validated(), $userType);
+
+        return $this->successResponse($result, 'Registration successful', 201);
     }
 
     public function logout(Request $request): JsonResponse
     {
         $this->authService->logout($request->user());
-
         return $this->successResponse(message: 'Logout successful');
-    }
-
-    public function me(Request $request): JsonResponse
-    {
-        $user = $this->authService->getCurrentUser($request->user());
-
-        return response()->json(['user' => $user]);
     }
 
     public function logoutAll(Request $request): JsonResponse
     {
         $this->authService->logoutAll($request->user());
-
         return $this->successResponse(message: 'Logged out from all devices');
     }
 
     public function refresh(Request $request): JsonResponse
     {
-        $result = $this->authService->refreshToken($request->user());
+        $result = $this->authService->refresh($request->user());
+        return $this->successResponse($result, 'Token refreshed successfully');
+    }
 
-        return response()->json([
-            'message' => 'Token refreshed successfully',
-            ...$result
-        ]);
+    public function me(Request $request): JsonResponse
+    {
+        $user = $this->authService->me($request->user());
+        return $this->successResponse($user);
     }
 }

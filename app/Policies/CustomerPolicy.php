@@ -5,42 +5,30 @@ namespace App\Policies;
 use App\Models\Customer;
 use App\Models\User;
 
-class CustomerPolicy
+class CustomerPolicy extends BasePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user instanceof \App\Models\StaffUser;
+        return $this->isStaff($user);
     }
 
     public function view(User $user, Customer $customer): bool
     {
-        if ($user instanceof Customer && $user->id === $customer->id) {
-            return true;
-        }
-
-        return $user instanceof \App\Models\StaffUser;
+        return $this->isSelfOrAdmin($user, $customer);
     }
 
-    public function create(?User $user): bool
+    public function create(User $user): bool
     {
-        return true;
+        return $this->isAdmin($user);
     }
 
     public function update(User $user, Customer $customer): bool
     {
-        if ($user instanceof Customer && $user->id === $customer->id) {
-            return true;
-        }
-
-        return $user instanceof \App\Models\StaffUser;
+        return $this->isSelfOrAdmin($user, $customer);
     }
 
     public function delete(User $user, Customer $customer): bool
     {
-        if ($user instanceof Customer && $user->id === $customer->id) {
-            return true;
-        }
-
-        return $user instanceof \App\Models\StaffUser;
+        return $this->isSelfOrAdmin($user, $customer);
     }
 }

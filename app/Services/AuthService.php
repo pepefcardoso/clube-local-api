@@ -2,59 +2,83 @@
 
 namespace App\Services;
 
-use App\Models\Customer;
-use App\Models\BusinessUser;
-use App\Models\StaffUser;
-use Illuminate\Support\Facades\Hash;
+use App\Enums\UserType;
+use App\Models\{Customer, BusinessUser, StaffUser};
+use Illuminate\Support\Facades\{Hash, RateLimiter};
 use Illuminate\Validation\ValidationException;
 
 class AuthService
 {
-    public function login(string $email, string $password, string $userType): array
+    public function login(string $email, string $password, string $userType, bool $remember = false): array
     {
-        $userModel = $this->getUserModel($userType);
+        // Rate limiting
+        $key = $email . '|' . request()->ip();
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            throw ValidationException::withMessages([
+                'email' => ['Too many login attempts. Please try again later.'],
+            ]);
+        }
+
+        $userTypeEnum = UserType::tryFrom($userType);
+        if (!$userTypeEnum) {
+            throw ValidationException::withMessages([
+                'user_type' => ['Invalid user type'],
+            ]);
+        }
+
+        $userModel = $userTypeEnum->getModelClass();
         $user = $userModel::where('email', $email)->first();
 
         if (!$user || !Hash::check($password, $user->password)) {
+            RateLimiter::hit($key);
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);
         }
 
+        // Verifica se usuário está ativo (para business e staff)
         if (method_exists($user, 'is_active') && !$user->is_active) {
             throw ValidationException::withMessages([
                 'email' => ['Your account has been deactivated.'],
             ]);
         }
 
-        if ($user instanceof StaffUser && method_exists($user, 'updateLastLogin')) {
-            $user->updateLastLogin();
-        }
+        RateLimiter::clear($key);
 
-        $abilities = $this->getTokenAbilities($user);
+        // Cria token
+        $abilities = $user->getTokenAbilities();
+        $expiresAt = $remember ? now()->addDays(30) : now()->addDay();
+
         $token = $user->createToken(
             name: $userType . '_token',
             abilities: $abilities,
-            expiresAt: now()->addDays(30)
+            expiresAt: $expiresAt
         );
 
         return [
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'type' => $userType,
-                'roles' => $user->getRoleNames(),
-                'permissions' => $user->getAllPermissions()->pluck('name'),
-            ],
+            'user' => $this->formatUserData($user),
             'token' => $token->plainTextToken,
             'expires_at' => $token->accessToken->expires_at,
+            'abilities' => $abilities,
         ];
+    }
+
+    public function register(array $data, UserType $userType): array
+    {
+        $data['password'] = Hash::make($data['password']);
+
+        $userModel = $userType->getModelClass();
+        $user = $userModel::create($data);
+
+        // Assign default role
+        $user->assignRole($userType->getDefaultRole());
+
+        return $this->createTokenForUser($user, $userType);
     }
 
     public function logout($user): void
     {
-        $user->currentAccessToken()->delete();
+        $user->currentAccessToken()?->delete();
     }
 
     public function logoutAll($user): void
@@ -62,81 +86,50 @@ class AuthService
         $user->tokens()->delete();
     }
 
-    public function refreshToken($user): array
+    public function refresh($user): array
     {
-        $userType = $this->getUserType($user);
-        $user->currentAccessToken()->delete();
+        $oldToken = $user->currentAccessToken();
+        $userType = $user->getUserType();
 
-        $abilities = $this->getTokenAbilities($user);
+        // Delete old token
+        $oldToken->delete();
+
+        return $this->createTokenForUser($user, $userType);
+    }
+
+    public function me($user): array
+    {
+        return $this->formatUserData($user);
+    }
+
+    private function createTokenForUser($user, UserType $userType): array
+    {
+        $abilities = $user->getTokenAbilities();
+
         $token = $user->createToken(
-            name: $userType . '_token',
+            name: $userType->value . '_token',
             abilities: $abilities,
-            expiresAt: now()->addDays(30)
+            expiresAt: now()->addDay()
         );
 
         return [
+            'user' => $this->formatUserData($user),
             'token' => $token->plainTextToken,
             'expires_at' => $token->accessToken->expires_at,
+            'abilities' => $abilities,
         ];
     }
 
-    public function getCurrentUser($user): array
+    private function formatUserData($user): array
     {
-        $userType = $this->getUserType($user);
-
         return [
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
-            'type' => $userType,
-            'roles' => $user->getRoleNames(),
-            'permissions' => $user->getAllPermissions()->pluck('name'),
-            'profile' => $user->only($user->getFillable()),
+            'type' => $user->getUserType()->value,
+            'roles' => $user->getRoleNames()->toArray(),
+            'permissions' => $user->getAllPermissions()->pluck('name')->toArray(),
+            'abilities' => $user->getTokenAbilities(),
         ];
-    }
-
-    private function getUserModel(string $userType): string
-    {
-        return match ($userType) {
-            'customer' => Customer::class,
-            'business' => BusinessUser::class,
-            'staff' => StaffUser::class,
-            default => throw new \InvalidArgumentException('Invalid user type')
-        };
-    }
-
-    private function getUserType($user): string
-    {
-        return match (true) {
-            $user instanceof Customer => 'customer',
-            $user instanceof BusinessUser => 'business',
-            $user instanceof StaffUser => 'staff',
-            default => 'unknown'
-        };
-    }
-
-    private function getTokenAbilities($user): array
-    {
-        $abilities = [];
-
-        if ($user instanceof Customer) {
-            $abilities = ['customer:read', 'customer:update'];
-            if ($user->isPremium()) {
-                $abilities[] = 'customer:premium';
-            }
-        } elseif ($user instanceof BusinessUser) {
-            $abilities = ['business:read', 'business:update'];
-            if ($user->isManager()) {
-                $abilities[] = 'business:manage';
-            }
-        } elseif ($user instanceof StaffUser) {
-            $abilities = ['staff:read', 'staff:update'];
-            if ($user->isAdmin()) {
-                $abilities[] = 'staff:admin';
-                $abilities[] = 'system:manage';
-            }
-        }
-
-        return $abilities;
     }
 }

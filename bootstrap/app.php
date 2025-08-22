@@ -6,8 +6,8 @@ use Illuminate\Foundation\Configuration\Middleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        api: __DIR__.'/../routes/api.php',
-        commands: __DIR__.'/../routes/console.php',
+        api: __DIR__ . '/../routes/api.php',
+        commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
@@ -17,11 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
-            'check.user.type' => \App\Http\Middleware\CheckUserType::class,
-            'check.role' => \App\Http\Middleware\CheckRole::class,
-            'check.permission' => \App\Http\Middleware\CheckPermission::class,
+            'unified.auth' => \App\Http\Middleware\UnifiedAuth::class,
             'ability' => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
-            'abilities' => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -9,32 +9,32 @@ use Illuminate\Validation\Rules\Password;
 
 abstract class BaseFormRequest extends FormRequest
 {
+    // Por padrão, autorização será feita via policies
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
-    protected function failedValidation(Validator $validator)
+    protected function failedValidation(Validator $validator): void
     {
         throw new HttpResponseException(
             response()->json([
-                'message' => 'Os dados fornecidos são inválidos.',
+                'message' => 'Validation failed',
                 'errors' => $validator->errors(),
             ], 422)
         );
     }
 
-    protected function userRules(bool $isUpdate = false, string $table = 'users', string $routeParam = 'user'): array
+    protected function userRules(bool $isUpdate = false, ?string $excludeId = null): array
     {
         $rule = $isUpdate ? 'sometimes' : 'required';
+        $table = $this->getTableName();
 
         $emailRule = [$rule, 'email', 'max:255'];
-
-        if ($isUpdate) {
-            $modelId = $this->route($routeParam) ? $this->route($routeParam)->id : null;
-            $emailRule[] = 'unique:' . $table . ',email,' . $modelId;
-        } else {
-            $emailRule[] = 'unique:' . $table . ',email';
+        if ($excludeId) {
+            $emailRule[] = "unique:{$table},email,{$excludeId}";
+        } elseif (!$isUpdate) {
+            $emailRule[] = "unique:{$table},email";
         }
 
         return [
@@ -43,21 +43,19 @@ abstract class BaseFormRequest extends FormRequest
             'password' => [
                 $rule,
                 'string',
-                Password::min(8),
+                Password::min(8)->mixedCase()->numbers(),
                 'confirmed'
             ],
             'phone' => ['nullable', 'string', 'max:20', 'regex:/^[\+]?[0-9\s\-\(\)]+$/'],
         ];
     }
 
-    public function messages(): array
+    protected function getTableName(): string
     {
-        return [
-            'email.unique' => 'Este endereço de e-mail já está cadastrado.',
-            'password.min' => 'A senha deve ter pelo menos 8 caracteres.',
-            'password.confirmed' => 'A confirmação de senha não corresponde.',
-            'phone.regex' => 'O formato do número de telefone é inválido.',
-            'birth_date.before' => 'A data de nascimento deve ser anterior a hoje.',
-        ];
+        return match (static::class) {
+            \App\Http\Requests\Customer\StoreCustomerRequest::class,
+            \App\Http\Requests\Customer\UpdateCustomerRequest::class => 'customers',
+            default => 'users',
+        };
     }
 }

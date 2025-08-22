@@ -2,63 +2,26 @@
 
 namespace App\Providers;
 
-use App\Models\BusinessUser;
-use App\Models\Customer;
-use App\Models\StaffUser;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
 class AuthServiceProvider extends ServiceProvider
 {
     protected $policies = [
-        //
+        \App\Models\Customer::class => \App\Policies\CustomerPolicy::class,
+        \App\Models\BusinessUser::class => \App\Policies\BusinessUserPolicy::class,
+        \App\Models\StaffUser::class => \App\Policies\StaffUserPolicy::class,
     ];
 
     public function boot(): void
     {
-        Gate::define('manage-customers', function ($user) {
-            return $user instanceof StaffUser;
-        });
-
-        Gate::define('manage-business-users', function ($user) {
-            if ($user instanceof StaffUser) {
-                return true;
-            }
-            return $user instanceof BusinessUser && $user->hasRole('company.manager');
-        });
-
-        Gate::define('manage-customers', function ($user) {
-            return $user instanceof StaffUser;
-        });
-
-        Gate::define('manage-business-users', function ($user) {
-            if ($user instanceof StaffUser) {
-                return true;
-            }
-
-            return $user instanceof BusinessUser && $user->hasRole('company.manager');
-        });
-
-        Gate::define('manage-staff-users', function ($user) {
-            return $user instanceof StaffUser && $user->hasRole('internal.admin');
-        });
-
-        Gate::define('customer:premium', function ($user) {
-            return $user instanceof Customer && $user->isPremium();
-        });
-
-        Gate::define('business:manage', function ($user) {
-            return $user instanceof BusinessUser && $user->isManager();
-        });
-
-        Gate::define('staff:admin', function ($user) {
-            return $user instanceof StaffUser && $user->isAdmin();
-        });
-
-        Gate::define('system:manage', function ($user) {
-            return $user instanceof StaffUser && $user->isAdmin();
-        });
-
         $this->registerPolicies();
+
+        // Gates simplificados - apenas para casos especiais
+        Gate::define(
+            'system:manage',
+            fn($user) =>
+            $user instanceof \App\Models\StaffUser && $user->hasRole('staff.admin')
+        );
     }
 }

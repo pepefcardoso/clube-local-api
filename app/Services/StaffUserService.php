@@ -77,7 +77,6 @@ class StaffUserService
         return [
             'statistics' => [
                 'total_customers' => Customer::count(),
-                'premium_customers' => Customer::where('subscription_type', 'premium')->count(),
                 'active_business_users' => BusinessUser::where('is_active', true)->count(),
                 'total_companies' => BusinessUser::distinct('company_name')->count('company_name'),
                 'active_staff' => StaffUser::where('is_active', true)->count(),

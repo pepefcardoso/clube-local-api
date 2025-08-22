@@ -26,7 +26,6 @@ class RolePermissionSeeder extends Seeder
             'create customers',
             'update customers',
             'delete customers',
-            'manage customer subscriptions',
 
             // Business user permissions
             'view business users',
@@ -67,8 +66,7 @@ class RolePermissionSeeder extends Seeder
         $customerPremium->givePermissionTo([
             'view own profile',
             'update own profile',
-            'manage customer subscriptions', // Premium customers can manage their own subscription
-        ]);
+            ]);
 
         // Create Business User Roles
         $businessEmployee = Role::create(['name' => BusinessUserRole::EMPLOYEE->value]);
@@ -113,7 +111,6 @@ class RolePermissionSeeder extends Seeder
             'create customers',
             'update customers',
             'delete customers',
-            'manage customer subscriptions',
             // Full business user management
             'view business users',
             'create business users',
