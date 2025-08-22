@@ -2,22 +2,19 @@
 
 namespace App\Http\Requests\BusinessUser;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\BaseFormRequest;
+use App\Models\BusinessUser;
 
-class StoreBusinessUserRequest extends FormRequest
+class StoreBusinessUserRequest extends BaseFormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()->can('create', BusinessUser::class) &&
+            $this->user()->hasPermissionTo('create_business_user');
     }
 
     public function rules(): array
     {
-        return [
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'unique:business_users,email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'phone' => ['nullable', 'string', 'max:20'],
-        ];
+        return $this->userRules();
     }
 }

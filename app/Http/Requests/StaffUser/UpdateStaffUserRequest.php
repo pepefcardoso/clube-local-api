@@ -2,22 +2,24 @@
 
 namespace App\Http\Requests\StaffUser;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\BaseFormRequest;
 
-class UpdateStaffUserRequest extends FormRequest
+class UpdateStaffUserRequest extends BaseFormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()->can('update', $this->route('staff_user')) &&
+            $this->user()->hasPermissionTo('update_staff_user');
     }
 
     public function rules(): array
     {
-        return [
-            'name' => ['sometimes', 'string', 'max:255'],
-            'email' => ['sometimes', 'email', 'unique:staff_users,email,' . $this->route('staff_user')],
-            'phone' => ['nullable', 'string', 'max:20'],
+        $userRules = $this->userRules(true, 'staff_users', 'staff_user');
+
+        $specificRules = [
             'is_active' => ['sometimes', 'boolean'],
         ];
+
+        return array_merge($userRules, $specificRules);
     }
 }

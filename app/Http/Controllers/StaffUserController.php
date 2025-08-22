@@ -4,139 +4,83 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StaffUser\StoreStaffUserRequest;
 use App\Http\Requests\StaffUser\UpdateStaffUserRequest;
+use App\Http\Resources\StaffUserResource;
+use App\Http\Resources\Collections\StaffUserCollection;
 use App\Models\StaffUser;
+use App\Services\StaffUserService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 
-class StaffUserController extends Controller
+class StaffUserController extends BaseApiController
 {
-    public function __construct()
-    {
+    public function __construct(
+        private StaffUserService $staffUserService
+    ) {
         $this->authorizeResource(StaffUser::class, 'staff_user');
     }
 
     public function index(Request $request): JsonResponse
     {
-        $staffUsers = StaffUser::query()
-            ->when($request->search, function ($query, $search) {
-                $query->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
-            })
-            ->when($request->has('is_active'), function ($query) use ($request) {
-                $query->where('is_active', $request->boolean('is_active'));
-            })
-            ->with('roles')
-            ->paginate($request->per_page ?? 15);
+        $staffUsers = $this->staffUserService->getStaffUsers($request);
 
-        return response()->json($staffUsers);
+        return $this->collectionResponse(
+            new StaffUserCollection($staffUsers)
+        );
     }
 
     public function store(StoreStaffUserRequest $request): JsonResponse
     {
-        $staffUser = StaffUser::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'phone' => $request->phone,
-        ]);
+        $staffUser = $this->staffUserService->createStaffUser($request->validated());
 
-        $staffUser->load('roles');
-
-        return response()->json([
-            'message' => 'Staff user created successfully',
-            'staff_user' => $staffUser,
-        ], 201);
+        return $this->resourceResponse(
+            new StaffUserResource($staffUser),
+            'Staff user created successfully'
+        )->setStatusCode(201);
     }
 
     public function show(StaffUser $staffUser): JsonResponse
     {
-        $staffUser->load('roles', 'permissions');
+        $staffUser = $this->staffUserService->getStaffUser($staffUser);
 
-        return response()->json([
-            'staff_user' => $staffUser,
-            'is_admin' => $staffUser->isAdmin(),
-        ]);
+        return $this->resourceResponse(
+            new StaffUserResource($staffUser)
+        );
     }
 
     public function update(UpdateStaffUserRequest $request, StaffUser $staffUser): JsonResponse
     {
-        $data = $request->validated();
+        $staffUser = $this->staffUserService->updateStaffUser($staffUser, $request->validated());
 
-        if (auth()->user()->id === $staffUser->id) {
-            $data = collect($data)->only([
-                'name',
-                'phone'
-            ])->toArray();
-        }
-
-        $staffUser->update($data);
-        $staffUser->load('roles');
-
-        return response()->json([
-            'message' => 'Staff user updated successfully',
-            'staff_user' => $staffUser,
-        ]);
+        return $this->resourceResponse(
+            new StaffUserResource($staffUser),
+            'Staff user updated successfully'
+        );
     }
 
     public function destroy(StaffUser $staffUser): JsonResponse
     {
-        $staffUser->tokens()->delete();
-        $staffUser->delete();
+        $this->staffUserService->deleteStaffUser($staffUser);
 
-        return response()->json([
-            'message' => 'Staff user deleted successfully',
-        ]);
+        return $this->successResponse(
+            message: 'Staff user deleted successfully'
+        );
     }
 
-    public function activate(StaffUser $staffUser): JsonResponse
+    public function register(StoreStaffUserRequest $request): JsonResponse
     {
-        $this->authorize('update', $staffUser);
-
-        $staffUser->update(['is_active' => true]);
+        $result = $this->staffUserService->createStaffUser($request->validated());
 
         return response()->json([
-            'message' => 'Staff user activated successfully',
-            'staff_user' => $staffUser,
-        ]);
-    }
-
-    public function deactivate(StaffUser $staffUser): JsonResponse
-    {
-        $this->authorize('update', $staffUser);
-
-        $staffUser->update(['is_active' => false]);
-        $staffUser->tokens()->delete();
-
-        return response()->json([
-            'message' => 'Staff user deactivated successfully',
-            'staff_user' => $staffUser,
-        ]);
-    }
-
-    public function dashboard(): JsonResponse
-    {
-        $this->authorize('manageSystem', auth()->user());
-
-        $stats = [
-            'total_customers' => \App\Models\Customer::count(),
-            'premium_customers' => \App\Models\Customer::where('subscription_type', 'premium')->count(),
-            'active_business_users' => \App\Models\BusinessUser::where('is_active', true)->count(),
-            'total_companies' => \App\Models\BusinessUser::distinct('company_name')->count(),
-            'active_staff' => StaffUser::where('is_active', true)->count(),
-            'recent_logins' => StaffUser::whereNotNull('last_login_at')
-                ->where('last_login_at', '>=', now()->subDays(7))
-                ->count(),
-        ];
-
-        $recentActivity = StaffUser::whereNotNull('last_login_at')
-            ->orderBy('last_login_at', 'desc')
-            ->limit(10)
-            ->get(['id', 'name', 'email', 'last_login_at', 'department']);
-
-        return response()->json([
-            'statistics' => $stats,
-            'recent_activity' => $recentActivity,
-        ]);
+            'message' => 'Staff user registered successfully',
+            'user' => [
+                'id' => $result['staff_user']->id,
+                'name' => $result['staff_user']->name,
+                'email' => $result['staff_user']->email,
+                'type' => 'staff_user',
+                'roles' => $result['staff_user']->getRoleNames(),
+            ],
+            'token' => $result['token'],
+            'expires_at' => $result['expires_at'],
+        ], 201);
     }
 }

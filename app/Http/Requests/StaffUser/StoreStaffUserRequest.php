@@ -2,22 +2,19 @@
 
 namespace App\Http\Requests\StaffUser;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\BaseFormRequest;
+use App\Models\StaffUser;
 
-class StoreStaffUserRequest extends FormRequest
+class StoreStaffUserRequest extends BaseFormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()->can('create', StaffUser::class) &&
+            $this->user()->hasPermissionTo('create_staff_user');
     }
 
     public function rules(): array
     {
-        return [
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'unique:staff_users,email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'phone' => ['nullable', 'string', 'max:20'],
-        ];
+        return $this->userRules();
     }
 }

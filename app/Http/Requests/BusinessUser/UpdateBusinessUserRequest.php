@@ -2,22 +2,24 @@
 
 namespace App\Http\Requests\BusinessUser;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\BaseFormRequest;
 
-class UpdateBusinessUserRequest extends FormRequest
+class UpdateBusinessUserRequest extends BaseFormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()->can('update', $this->route('business_user')) &&
+            $this->user()->hasPermissionTo('update_business_user');
     }
 
     public function rules(): array
     {
-        return [
-            'name' => ['sometimes', 'string', 'max:255'],
-            'email' => ['sometimes', 'email', 'unique:business_users,email,' . $this->route('business_user')],
-            'phone' => ['nullable', 'string', 'max:20'],
+        $userRules = $this->userRules(true, 'business_users', 'business_user');
+
+        $specificRules = [
             'is_active' => ['sometimes', 'boolean'],
         ];
+
+        return array_merge($userRules, $specificRules);
     }
 }

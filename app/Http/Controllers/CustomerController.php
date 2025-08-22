@@ -4,114 +4,83 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Customer\StoreCustomerRequest;
 use App\Http\Requests\Customer\UpdateCustomerRequest;
+use App\Http\Resources\CustomerResource;
+use App\Http\Resources\Collections\CustomerCollection;
 use App\Models\Customer;
+use App\Services\CustomerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 
-class CustomerController extends Controller
+class CustomerController extends BaseApiController
 {
-    public function __construct()
-    {
+    public function __construct(
+        private CustomerService $customerService
+    ) {
         $this->authorizeResource(Customer::class, 'customer');
     }
 
     public function index(Request $request): JsonResponse
     {
-        $customers = Customer::query()
-            ->when($request->search, function ($query, $search) {
-                $query->where('name', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%");
-            })
-            ->with('roles')
-            ->paginate($request->per_page ?? 15);
+        $customers = $this->customerService->getCustomers($request);
 
-        return response()->json($customers);
+        return $this->collectionResponse(
+            new CustomerCollection($customers)
+        );
     }
 
     public function store(StoreCustomerRequest $request): JsonResponse
     {
-        $customer = Customer::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'phone' => $request->phone,
-            'birth_date' => $request->birth_date,
-            'address' => $request->address,
-        ]);
+        $customer = $this->customerService->createCustomer($request->validated());
 
-        $customer->load('roles');
-
-        return response()->json([
-            'message' => 'Customer created successfully',
-            'customer' => $customer,
-        ], 201);
+        return $this->resourceResponse(
+            new CustomerResource($customer),
+            'Customer created successfully'
+        )->setStatusCode(201);
     }
 
     public function show(Customer $customer): JsonResponse
     {
-        $customer->load('roles', 'permissions');
+        $customer = $this->customerService->getCustomer($customer);
 
-        return response()->json([
-            'customer' => $customer
-        ]);
+        return $this->resourceResponse(
+            new CustomerResource($customer)
+        );
     }
 
     public function update(UpdateCustomerRequest $request, Customer $customer): JsonResponse
     {
-        $data = $request->validated();  
+        $customer = $this->customerService->updateCustomer($customer, $request->validated());
 
-        $customer->update($data);
-        $customer->load('roles');
-
-        return response()->json([
-            'message' => 'Customer updated successfully',
-            'customer' => $customer,
-        ]);
+        return $this->resourceResponse(
+            new CustomerResource($customer),
+            'Customer updated successfully'
+        );
     }
 
     public function destroy(Customer $customer): JsonResponse
     {
-        $customer->tokens()->delete();
-        $customer->delete();
+        $this->customerService->deleteCustomer($customer);
 
-        return response()->json([
-            'message' => 'Customer deleted successfully',
-        ]);
+        return $this->successResponse(
+            message: 'Customer deleted successfully'
+        );
     }
 
     public function register(StoreCustomerRequest $request): JsonResponse
     {
-        $customer = Customer::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'phone' => $request->phone,
-            'birth_date' => $request->birth_date,
-            'address' => $request->address,
-            'city' => $request->city,
-            'state' => $request->state,
-            'zip_code' => $request->zip_code,
-            'subscription_type' => 'basic',
-        ]);
-
-        $token = $customer->createToken(
-            name: 'customer_token',
-            abilities: ['customer:read', 'customer:update'],
-            expiresAt: now()->addDays(30)
-        );
+        $result = $this->customerService->registerCustomer($request->validated());
 
         return response()->json([
             'message' => 'Customer registered successfully',
-            'customer' => [
-                'id' => $customer->id,
-                'name' => $customer->name,
-                'email' => $customer->email,
+            'user' => [
+                'id' => $result['customer']->id,
+                'name' => $result['customer']->name,
+                'email' => $result['customer']->email,
                 'type' => 'customer',
-                'roles' => $customer->getRoleNames(),
+                'roles' => $result['customer']->getRoleNames(),
             ],
-            'token' => $token->plainTextToken,
-            'expires_at' => $token->accessToken->expires_at,
+            'token' => $result['token'],
+            'expires_at' => $result['expires_at'],
         ], 201);
     }
 }
