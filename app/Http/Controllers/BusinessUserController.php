@@ -8,8 +8,9 @@ use App\Models\BusinessUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 
-class BusinessUserController extends Controller
+class BusinessUserController extends BaseController
 {
     public function __construct()
     {
@@ -20,8 +21,8 @@ class BusinessUserController extends Controller
     {
         $query = BusinessUser::query();
 
-        if (auth()->user() instanceof BusinessUser) {
-            $query->where('company_name', auth()->user()->company_name);
+        if (Auth::user() instanceof BusinessUser) {
+            $query->where('company_name', Auth::user()->company_name);
         }
 
         $businessUsers = $query
