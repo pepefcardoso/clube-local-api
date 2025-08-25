@@ -7,7 +7,6 @@ use App\Models\BusinessUser;
 use App\Models\Customer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
-use Laravel\Sanctum\PersonalAccessToken;
 use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -19,6 +18,8 @@ class AuthTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Ensure stateless authentication for consistent testing
         config(['sanctum.stateful' => []]);
     }
 
@@ -41,7 +42,7 @@ class AuthTest extends TestCase
     #[DataProvider('userTypesProvider')]
     public function test_a_user_can_register_successfully(UserType $userType): void
     {
-        // Arrange: Prepara os dados do utilizador a ser registado.
+        // Arrange
         $password = 'Password123';
         $userData = [
             'name' => $this->faker->name,
@@ -51,10 +52,10 @@ class AuthTest extends TestCase
             'user_type' => $userType->value,
         ];
 
-        // Act: Faz uma requisição POST para a rota de registo.
+        // Act
         $response = $this->postJson(route('api.v1.auth.register'), $userData);
 
-        // Assert: Verifica se a resposta e o estado da base de dados estão corretos.
+        // Assert
         $response->assertStatus(201)
             ->assertJsonStructure([
                 'message',
@@ -68,7 +69,6 @@ class AuthTest extends TestCase
             ->assertJsonPath('data.user.email', $userData['email'])
             ->assertJsonPath('data.user.type', $userType->value);
 
-        // Verifica se o utilizador foi criado na tabela correta.
         $modelClass = $userType->getModelClass();
         $tableName = (new $modelClass)->getTable();
 
@@ -80,13 +80,11 @@ class AuthTest extends TestCase
 
     public function test_registration_fails_with_validation_errors(): void
     {
-        // Act: Tenta registar com dados em falta.
         $response = $this->postJson(route('api.v1.auth.register'), [
             'email' => 'not-an-email',
             'password' => 'short',
         ]);
 
-        // Assert: Verifica se a API retorna os erros de validação esperados.
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['user_type', 'name', 'email', 'password']);
     }
@@ -98,27 +96,26 @@ class AuthTest extends TestCase
     #[DataProvider('userTypesProvider')]
     public function test_a_user_can_log_in_successfully(UserType $userType): void
     {
-        // Arrange: Cria um utilizador do tipo especificado.
+        // Arrange
         $modelClass = $userType->getModelClass();
         $user = $modelClass::factory()->withPassword('Password123')->create();
 
-        // Mapear os tipos de utilizador para os valores esperados pelo login
         $userTypeMapping = [
             'customer' => 'customer',
-            'business_user' => 'business',
-            'staff_user' => 'staff',
+            'business_user' => 'business_user',
+            'staff_user' => 'staff_user',
         ];
 
         $loginUserType = $userTypeMapping[$userType->value];
 
-        // Act: Tenta fazer login com as credenciais corretas.
+        // Act
         $response = $this->postJson(route('api.v1.auth.login'), [
             'email' => $user->email,
             'password' => 'Password123',
             'user_type' => $loginUserType,
         ]);
 
-        // Assert: Verifica se o login foi bem-sucedido e retornou um token.
+        // Assert
         $response->assertStatus(200)
             ->assertJsonStructure([
                 'message',
@@ -128,44 +125,37 @@ class AuthTest extends TestCase
 
     public function test_login_fails_with_incorrect_password(): void
     {
-        // Arrange: Cria um utilizador Customer.
         $user = Customer::factory()->withPassword('Password123')->create();
 
-        // Act: Tenta fazer login com a password errada.
         $response = $this->postJson(route('api.v1.auth.login'), [
             'email' => $user->email,
             'password' => 'WrongPassword',
             'user_type' => 'customer',
         ]);
 
-        // Assert: Verifica a resposta de erro de validação.
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['email']);
     }
 
     public function test_login_fails_for_inactive_users(): void
     {
-        // Arrange: Cria um BusinessUser inativo.
         $user = BusinessUser::factory()->inactive()->withPassword('Password123')->create();
 
-        // Act: Tenta fazer login.
         $response = $this->postJson(route('api.v1.auth.login'), [
             'email' => $user->email,
             'password' => 'Password123',
-            'user_type' => 'business',
+            'user_type' => 'business_user',
         ]);
 
-        // Assert: Verifica a mensagem de erro para contas desativadas.
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['email']);
     }
 
     public function test_login_is_rate_limited_after_too_many_failed_attempts(): void
     {
-        // Arrange: Cria um utilizador para o teste.
         $user = Customer::factory()->create();
 
-        // Act: Simula 5 tentativas de login falhadas.
+        // Make 5 failed attempts
         for ($i = 0; $i < 5; $i++) {
             $this->postJson(route('api.v1.auth.login'), [
                 'email' => $user->email,
@@ -174,7 +164,7 @@ class AuthTest extends TestCase
             ])->assertStatus(422);
         }
 
-        // Act & Assert: A 6ª tentativa deve ser bloqueada com uma mensagem de "Too many attempts".
+        // 6th attempt should be rate limited
         $this->postJson(route('api.v1.auth.login'), [
             'email' => $user->email,
             'password' => 'wrong-password',
@@ -191,15 +181,12 @@ class AuthTest extends TestCase
     #[DataProvider('userTypesProvider')]
     public function test_an_authenticated_user_can_get_their_profile(UserType $userType): void
     {
-        // Arrange: Cria e autentica um utilizador.
         $modelClass = $userType->getModelClass();
         $user = $modelClass::factory()->create();
         Sanctum::actingAs($user, ['*']);
 
-        // Act: Acede à rota 'me'.
         $response = $this->getJson(route('api.v1.auth.me'));
 
-        // Assert: Verifica se os dados do utilizador correto são retornados.
         $response->assertStatus(200)
             ->assertJsonPath('data.id', $user->id)
             ->assertJsonPath('data.email', $user->email);
@@ -209,7 +196,6 @@ class AuthTest extends TestCase
     {
         $user = Customer::factory()->withPassword('Password123')->create();
 
-        // Make a real login request to get a proper token
         $loginResponse = $this->postJson(route('api.v1.auth.login'), [
             'email' => $user->email,
             'password' => 'Password123',
@@ -218,17 +204,17 @@ class AuthTest extends TestCase
 
         $token = $loginResponse->json('data.token');
 
-        // Verify the token works before logout
+        // Verify token works
         $this->withToken($token)
             ->getJson(route('api.v1.auth.me'))
             ->assertStatus(200);
 
-        // Act: Make logout request
+        // Logout
         $this->withToken($token)
             ->postJson(route('api.v1.auth.logout'))
             ->assertStatus(200);
 
-        // Assert: The token should no longer work
+        // Token should no longer work
         $this->withToken($token)
             ->getJson(route('api.v1.auth.me'))
             ->assertStatus(401);
@@ -252,11 +238,10 @@ class AuthTest extends TestCase
 
         $oldToken = $loginResponse->json('data.token');
 
-        // Act: Make refresh request
+        // Refresh token
         $response = $this->withToken($oldToken)
             ->postJson(route('api.v1.auth.refresh'));
 
-        // Assert: New token should be returned
         $response->assertStatus(200)
             ->assertJsonStructure(['data' => ['token']]);
 
@@ -303,12 +288,12 @@ class AuthTest extends TestCase
         $this->withToken($token1)->getJson(route('api.v1.auth.me'))->assertStatus(200);
         $this->withToken($token2)->getJson(route('api.v1.auth.me'))->assertStatus(200);
 
-        // Act: Logout all
+        // Logout all
         $this->withToken($token1)
             ->postJson(route('api.v1.auth.logout-all'))
             ->assertStatus(200);
 
-        // Assert: Both tokens should be invalid
+        // Both tokens should be invalid
         $this->withToken($token1)->getJson(route('api.v1.auth.me'))->assertStatus(401);
         $this->withToken($token2)->getJson(route('api.v1.auth.me'))->assertStatus(401);
 

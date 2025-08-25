@@ -20,19 +20,4 @@ class LoginRequest extends FormRequest
             'remember' => ['boolean'],
         ];
     }
-
-    protected function prepareForValidation()
-    {
-        $userTypeMapping = [
-            'customer' => 'customer',
-            'business' => 'business_user',
-            'staff' => 'staff_user',
-        ];
-
-        if ($this->has('user_type') && isset($userTypeMapping[$this->user_type])) {
-            $this->merge([
-                'user_type' => $userTypeMapping[$this->user_type],
-            ]);
-        }
-    }
 }
