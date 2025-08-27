@@ -4,63 +4,68 @@ namespace App\Policies;
 
 use App\Models\StaffUserProfile;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class StaffUserProfilePolicy
 {
-    /**
-     * Determine whether the user can view any models.
-     */
     public function viewAny(User $user): bool
     {
-        return false;
+        return $user->isStaff() && $user->profileable->access_level === 'admin';
     }
 
-    /**
-     * Determine whether the user can view the model.
-     */
     public function view(User $user, StaffUserProfile $staffUserProfile): bool
     {
+        if ($staffUserProfile->user && $user->id === $staffUserProfile->user->id) {
+            return true;
+        }
+
+        if ($user->isStaff() && $user->profileable->access_level === 'admin') {
+            return true;
+        }
+
         return false;
     }
 
-    /**
-     * Determine whether the user can create models.
-     */
     public function create(User $user): bool
     {
-        return false;
+        return $user->isStaff() && $user->profileable->access_level === 'admin';
     }
 
-    /**
-     * Determine whether the user can update the model.
-     */
     public function update(User $user, StaffUserProfile $staffUserProfile): bool
     {
+        if ($staffUserProfile->user && $user->id === $staffUserProfile->user->id) {
+            return true;
+        }
+
+        if ($user->isStaff() && $user->profileable->access_level === 'admin') {
+            return true;
+        }
+
         return false;
     }
 
-    /**
-     * Determine whether the user can delete the model.
-     */
     public function delete(User $user, StaffUserProfile $staffUserProfile): bool
     {
+        if ($staffUserProfile->user && $user->id === $staffUserProfile->user->id) {
+            return false;
+        }
+
+        if ($user->isStaff() && $user->profileable->access_level === 'admin') {
+            if ($staffUserProfile->access_level === 'admin') {
+                return false;
+            }
+            return true;
+        }
+
         return false;
     }
 
-    /**
-     * Determine whether the user can restore the model.
-     */
     public function restore(User $user, StaffUserProfile $staffUserProfile): bool
     {
-        return false;
+        return $user->isStaff() && $user->profileable->access_level === 'admin';
     }
 
-    /**
-     * Determine whether the user can permanently delete the model.
-     */
     public function forceDelete(User $user, StaffUserProfile $staffUserProfile): bool
     {
-        return false;
+        return $user->isStaff() && $user->profileable->access_level === 'admin';
     }
 }

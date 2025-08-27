@@ -2,63 +2,83 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use App\Http\Requests\StaffUserProfile\FilterStaffUsersRequest;
+use App\Http\Requests\StaffUserProfile\StoreStaffUserRequest;
+use App\Http\Requests\StaffUserProfile\UpdateStaffUserRequest;
+use App\Http\Resources\StaffUserProfileResource;
+use App\Services\StaffUserProfile\DeleteStaffUser;
+use App\Services\StaffUserProfile\UpdateStaffUser;
+use App\Services\StaffUserProfile\CreateStaffUser;
+use App\Models\StaffUserProfile;
+use App\Services\StaffUserProfile\ListStaffUsers;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class StaffUserProfileController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    use AuthorizesRequests;
+
+    public function index(FilterStaffUsersRequest $request, ListStaffUsers $service): AnonymousResourceCollection
     {
-        //
+        $staffUsers = $service->list($request->validated());
+        return StaffUserProfileResource::collection($staffUsers);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    public function store(StoreStaffUserRequest $request, CreateStaffUser $service): JsonResponse
     {
-        //
+        $staffUser = $service->create($request->validated());
+
+        return (new StaffUserProfileResource($staffUser))
+            ->response()
+            ->setStatusCode(201);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function show(StaffUserProfile $staffUserProfile): StaffUserProfileResource
     {
-        //
+        $this->authorize('view', $staffUserProfile);
+        $staffUserProfile->load('user');
+        return new StaffUserProfileResource($staffUserProfile);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function update(UpdateStaffUserRequest $request, StaffUserProfile $staffUserProfile, UpdateStaffUser $service): StaffUserProfileResource
     {
-        //
+        $staffUserProfile = $service->update($staffUserProfile, $request->validated());
+        return new StaffUserProfileResource($staffUserProfile);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
+    public function destroy(StaffUserProfile $staffUserProfile, DeleteStaffUser $service): JsonResponse
     {
-        //
+        $this->authorize('delete', $staffUserProfile);
+        $service->delete($staffUserProfile);
+        return response()->json(null, 204);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    public function updatePermissions(UpdateStaffUserRequest $request, StaffUserProfile $staffUserProfile): JsonResponse
     {
-        //
+        $this->authorize('update', $staffUserProfile);
+
+        $staffUserProfile->update([
+            'system_permissions' => $request->validated()['system_permissions'] ?? [],
+        ]);
+
+        return response()->json([
+            'message' => 'Permissões atualizadas com sucesso',
+            'staff_user' => new StaffUserProfileResource($staffUserProfile)
+        ]);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+    public function updateAccessLevel(UpdateStaffUserRequest $request, StaffUserProfile $staffUserProfile): JsonResponse
     {
-        //
+        $this->authorize('update', $staffUserProfile);
+
+        $staffUserProfile->update([
+            'access_level' => $request->validated()['access_level'],
+        ]);
+
+        return response()->json([
+            'message' => 'Nível de acesso atualizado com sucesso',
+            'staff_user' => new StaffUserProfileResource($staffUserProfile)
+        ]);
     }
 }
