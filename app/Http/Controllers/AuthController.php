@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
+use App\Http\Requests\Auth\LoginRequest;
 
 class AuthController extends Controller
 {
@@ -19,15 +20,10 @@ class AuthController extends Controller
     }
 
 
-    public function login(Request $request): JsonResponse
+    public function login(LoginRequest $request): JsonResponse
     {
-        $request->validate([
-            'email' => 'required|string|email',
-            'password' => 'required|string',
-        ]);
-
         try {
-            $result = $this->loginService->login($request->only('email', 'password'));
+            $result = $this->loginService->login($request->validated());
 
             return response()->json([
                 'message' => 'Login bem-sucedido',
@@ -42,6 +38,7 @@ class AuthController extends Controller
             ], 422);
         }
     }
+
 
     public function logout(Request $request): JsonResponse
     {

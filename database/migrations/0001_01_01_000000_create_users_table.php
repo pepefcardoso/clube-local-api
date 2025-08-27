@@ -23,9 +23,12 @@ return new class extends Migration
             $table->string('provider_id')->nullable();
             $table->timestamp('last_login_at')->nullable();
             $table->boolean('is_active')->default(true);
+            $table->unsignedBigInteger('profileable_id')->nullable();
+            $table->string('profileable_type')->nullable();
             $table->softDeletes();
             $table->rememberToken();
             $table->timestamps();
+            $table->index(['profileable_id', 'profileable_type']);
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
