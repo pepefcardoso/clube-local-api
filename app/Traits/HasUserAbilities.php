@@ -84,26 +84,32 @@ trait HasUserAbilities
     {
         $abilities = [];
 
-        $businessProfiles = $this->businessUserProfiles()->active()->get();
+        $businessProfile = $this->profileable;
 
-        foreach ($businessProfiles as $profile) {
-            $businessId = $profile->business_id;
+        if (!$businessProfile || !$businessProfile->business) {
+            return $abilities;
+        }
 
-            $abilities[] = "business:{$businessId}:read";
-            $abilities[] = "business:{$businessId}:orders:read";
+        $businessId = $businessProfile->business_id;
 
-            if ($this->hasBusinessAdminPermission($businessId)) {
-                $abilities = array_merge($abilities, [
-                    "business:{$businessId}:manage",
-                    "business:{$businessId}:users:manage",
-                    "business:{$businessId}:settings:update",
-                ]);
-            }
+        $abilities[] = "business:{$businessId}:read";
+        $abilities[] = "business:{$businessId}:orders:read";
 
-            if (is_array($profile->permissions)) {
-                foreach ($profile->permissions as $permission) {
-                    $abilities[] = "business:{$businessId}:{$permission}";
-                }
+        if (
+            $businessProfile->hasPermission('admin') ||
+            $businessProfile->hasPermission('manage_users') ||
+            $businessProfile->hasPermission('full_access')
+        ) {
+            $abilities = array_merge($abilities, [
+                "business:{$businessId}:manage",
+                "business:{$businessId}:users:manage",
+                "business:{$businessId}:settings:update",
+            ]);
+        }
+
+        if (is_array($businessProfile->permissions)) {
+            foreach ($businessProfile->permissions as $permission) {
+                $abilities[] = "business:{$businessId}:{$permission}";
             }
         }
 

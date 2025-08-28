@@ -50,4 +50,11 @@ class BusinessUserProfile extends Model
     {
         return in_array($permission, $this->permissions ?? []);
     }
+
+    public function hasAdminPermission(): bool
+    {
+        return $this->hasPermission('admin') ||
+            $this->hasPermission('manage_users') ||
+            $this->hasPermission('full_access');
+    }
 }

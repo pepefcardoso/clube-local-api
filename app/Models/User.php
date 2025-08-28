@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Traits\HasUserAbilities;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -50,11 +49,6 @@ class User extends Authenticatable
         return $this->morphTo();
     }
 
-    public function businessUserProfiles(): HasMany
-    {
-        return $this->hasMany(BusinessUserProfile::class, 'user_id');
-    }
-
     public function isCustomer(): bool
     {
         return $this->profileable_type === CustomerProfile::class;
@@ -70,7 +64,6 @@ class User extends Authenticatable
         return $this->profileable_type === StaffUserProfile::class;
     }
 
-    // Utility methods
     public function updateLastLogin(): void
     {
         $this->update(['last_login_at' => now()]);
@@ -92,19 +85,8 @@ class User extends Authenticatable
         if ($this->isBusinessUser()) {
             $roles[] = 'business_user';
 
-            // Check if user has admin role in any business
-            $hasAdminRole = $this->businessUserProfiles()
-                ->whereHas('business', function ($query) {
-                    $query->where('status', 'active');
-                })
-                ->where(function ($query) {
-                    $query->whereJsonContains('permissions', 'admin')
-                        ->orWhereJsonContains('permissions', 'manage_users')
-                        ->orWhereJsonContains('permissions', 'full_access');
-                })
-                ->exists();
-
-            if ($hasAdminRole) {
+            $businessProfile = $this->profileable;
+            if ($businessProfile && $businessProfile->hasPermission('admin')) {
                 $roles[] = 'business_admin';
             }
         }
@@ -126,22 +108,5 @@ class User extends Authenticatable
         }
 
         return $roles;
-    }
-
-    public function hasBusinessAdminPermission(int $businessId): bool
-    {
-        if (!$this->isBusinessUser()) {
-            return false;
-        }
-
-        return $this->businessUserProfiles()
-            ->where('business_id', $businessId)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereJsonContains('permissions', 'admin')
-                    ->orWhereJsonContains('permissions', 'manage_users')
-                    ->orWhereJsonContains('permissions', 'full_access');
-            })
-            ->exists();
     }
 }

@@ -21,15 +21,22 @@ class CheckBusinessAccess
             return response()->json(['message' => 'Business ID is required'], 400);
         }
 
-        $hasAccess = $user->businessUserProfiles()
-            ->where('business_id', $businessId)
-            ->where('status', 'active')
-            ->exists();
-
-        if (!$hasAccess && !$user->hasRole('staff_admin')) {
-            return response()->json(['message' => 'Access denied to this business'], 403);
+        if ($user->isStaff() && $user->profileable->access_level === 'admin') {
+            return $next($request);
         }
 
-        return $next($request);
+        if ($user->isBusinessUser()) {
+            $businessProfile = $user->profileable;
+
+            if (
+                $businessProfile &&
+                $businessProfile->business_id == $businessId &&
+                $businessProfile->status === 'active'
+            ) {
+                return $next($request);
+            }
+        }
+
+        return response()->json(['message' => 'Access denied to this business'], 403);
     }
 }

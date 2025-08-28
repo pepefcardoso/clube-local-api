@@ -29,18 +29,19 @@ class UserPolicy
             return true;
         }
 
-        if ($user->isBusinessUser()) {
-            $userBusinessIds = $user->businessUserProfiles->pluck('business_id')->toArray();
+        if ($user->isBusinessUser() && $model->isBusinessUser()) {
+            $userBusinessId = $user->profileable->business_id;
+            $modelBusinessId = $model->profileable->business_id;
 
-            if ($model->isBusinessUser()) {
-                $modelBusinessIds = $model->businessUserProfiles->pluck('business_id')->toArray();
-                return !empty(array_intersect($userBusinessIds, $modelBusinessIds));
-            }
+            return $userBusinessId === $modelBusinessId;
+        }
 
-            if ($model->isCustomer()) {
-                $modelBusinessIds = $model->profileable->businesses->pluck('id')->toArray();
-                return !empty(array_intersect($userBusinessIds, $modelBusinessIds));
-            }
+        if ($user->isBusinessUser() && $model->isCustomer()) {
+            $userBusinessId = $user->profileable->business_id;
+
+            return $model->profileable->businesses()
+                ->where('business_id', $userBusinessId)
+                ->exists();
         }
 
         return false;
@@ -69,18 +70,19 @@ class UserPolicy
             return true;
         }
 
-        if ($user->isBusinessUser() && $user->hasRole('business_admin')) {
-            $userBusinessIds = $user->businessUserProfiles->pluck('business_id')->toArray();
+        if ($user->isBusinessUser() && $user->hasRole('business_admin') && $model->isBusinessUser()) {
+            $userBusinessId = $user->profileable->business_id;
+            $modelBusinessId = $model->profileable->business_id;
 
-            if ($model->isBusinessUser()) {
-                $modelBusinessIds = $model->businessUserProfiles->pluck('business_id')->toArray();
-                return !empty(array_intersect($userBusinessIds, $modelBusinessIds));
-            }
+            return $userBusinessId === $modelBusinessId;
+        }
 
-            if ($model->isCustomer()) {
-                $modelBusinessIds = $model->profileable->businesses->pluck('id')->toArray();
-                return !empty(array_intersect($userBusinessIds, $modelBusinessIds));
-            }
+        if ($user->isBusinessUser() && $user->hasRole('business_admin') && $model->isCustomer()) {
+            $userBusinessId = $user->profileable->business_id;
+
+            return $model->profileable->businesses()
+                ->where('business_id', $userBusinessId)
+                ->exists();
         }
 
         return false;
@@ -99,13 +101,11 @@ class UserPolicy
             return true;
         }
 
-        if ($user->isBusinessUser() && $user->hasRole('business_admin')) {
-            $userBusinessIds = $user->businessUserProfiles->pluck('business_id')->toArray();
+        if ($user->isBusinessUser() && $user->hasRole('business_admin') && $model->isBusinessUser()) {
+            $userBusinessId = $user->profileable->business_id;
+            $modelBusinessId = $model->profileable->business_id;
 
-            if ($model->isBusinessUser()) {
-                $modelBusinessIds = $model->businessUserProfiles->pluck('business_id')->toArray();
-                return !empty(array_intersect($userBusinessIds, $modelBusinessIds));
-            }
+            return $userBusinessId === $modelBusinessId;
         }
 
         return false;
