@@ -25,7 +25,15 @@ class StaffUserProfileController extends BaseController
 
     public function store(StoreStaffUserRequest $request, CreateStaffUser $service): JsonResponse
     {
-        $staffUser = $service->create($request->validated());
+        $this->authorize('create', StaffUserProfile::class);
+
+        $data = $request->validated();
+
+        if ($data['access_level'] === 'admin') {
+            $this->authorize('createAdmin', StaffUserProfile::class);
+        }
+
+        $staffUser = $service->create($data);
 
         return $this->createdResponse(
             new StaffUserProfileResource($staffUser),
@@ -42,7 +50,24 @@ class StaffUserProfileController extends BaseController
 
     public function update(UpdateStaffUserRequest $request, StaffUserProfile $staffUserProfile, UpdateStaffUser $service): JsonResponse
     {
-        $staffUserProfile = $service->update($staffUserProfile, $request->validated());
+        $this->authorize('update', $staffUserProfile);
+
+        $data = $request->validated();
+
+        if (isset($data['access_level'])) {
+            $newLevel = $data['access_level'];
+            $currentLevel = $staffUserProfile->access_level;
+
+            if ($newLevel === 'admin' && $currentLevel !== 'admin') {
+                $this->authorize('promoteToAdmin', $staffUserProfile);
+            }
+
+            if ($currentLevel === 'admin' && $newLevel !== 'admin') {
+                $this->authorize('demoteFromAdmin', $staffUserProfile);
+            }
+        }
+
+        $staffUserProfile = $service->update($staffUserProfile, $data);
 
         return $this->updatedResponse(
             new StaffUserProfileResource($staffUserProfile),
