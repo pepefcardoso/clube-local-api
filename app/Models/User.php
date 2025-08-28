@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Traits\HasUserAbilities;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -12,7 +14,7 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasApiTokens, HasRoles, SoftDeletes;
+    use HasFactory, Notifiable, HasApiTokens, HasRoles, SoftDeletes, HasUserAbilities;
 
     protected $fillable = [
         'name',
@@ -48,6 +50,11 @@ class User extends Authenticatable
         return $this->morphTo();
     }
 
+    public function businessUserProfiles(): HasMany
+    {
+        return $this->hasMany(BusinessUserProfile::class, 'user_id');
+    }
+
     public function isCustomer(): bool
     {
         return $this->profileable_type === CustomerProfile::class;
@@ -63,6 +70,7 @@ class User extends Authenticatable
         return $this->profileable_type === StaffUserProfile::class;
     }
 
+    // Utility methods
     public function updateLastLogin(): void
     {
         $this->update(['last_login_at' => now()]);
@@ -71,85 +79,6 @@ class User extends Authenticatable
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
-    }
-
-    public function generateApiToken(): string
-    {
-        $this->tokens()->delete();
-
-        $abilities = $this->getUserAbilities();
-
-        return $this->createToken('auth-token', $abilities)->plainTextToken;
-    }
-
-    public function getUserAbilities(): array
-    {
-        $abilities = [];
-
-        // Base abilities for all users
-        $abilities[] = 'profile:read';
-        $abilities[] = 'profile:update';
-
-        if ($this->isCustomer()) {
-            $abilities = array_merge($abilities, [
-                'customer:profile:read',
-                'customer:profile:update',
-                'orders:create',
-                'orders:read',
-            ]);
-        }
-
-        if ($this->isStaff()) {
-            $staffProfile = $this->profileable;
-
-            if ($staffProfile && $staffProfile->access_level === 'admin') {
-                $abilities = array_merge($abilities, [
-                    'admin:users:read',
-                    'admin:users:create',
-                    'admin:users:update',
-                    'admin:users:delete',
-                    'admin:staff:create',
-                    'admin:staff:update',
-                    'admin:staff:delete',
-                    'admin:businesses:read',
-                    'admin:businesses:approve',
-                    'admin:system:manage',
-                ]);
-            } elseif ($staffProfile && $staffProfile->access_level === 'advanced') {
-                $abilities = array_merge($abilities, [
-                    'staff:dashboard:read',
-                    'staff:reports:read',
-                    'staff:users:read',
-                ]);
-            } else {
-                $abilities = array_merge($abilities, [
-                    'staff:dashboard:read',
-                    'staff:reports:read',
-                ]);
-            }
-        }
-
-        if ($this->isBusinessUser()) {
-            $businessProfiles = $this->businessUserProfiles()->active()->get();
-            foreach ($businessProfiles as $profile) {
-                $businessId = $profile->business_id;
-
-                if ($this->hasRole('business_admin')) {
-                    $abilities = array_merge($abilities, [
-                        "business:{$businessId}:manage",
-                        "business:{$businessId}:users:manage",
-                        "business:{$businessId}:settings:update",
-                    ]);
-                } else {
-                    $abilities = array_merge($abilities, [
-                        "business:{$businessId}:read",
-                        "business:{$businessId}:orders:read",
-                    ]);
-                }
-            }
-        }
-
-        return array_unique($abilities);
     }
 
     public function getAllUserRoles(): array
@@ -163,11 +92,16 @@ class User extends Authenticatable
         if ($this->isBusinessUser()) {
             $roles[] = 'business_user';
 
+            // Check if user has admin role in any business
             $hasAdminRole = $this->businessUserProfiles()
                 ->whereHas('business', function ($query) {
                     $query->where('status', 'active');
                 })
-                ->where('permissions', 'like', '%admin%')
+                ->where(function ($query) {
+                    $query->whereJsonContains('permissions', 'admin')
+                        ->orWhereJsonContains('permissions', 'manage_users')
+                        ->orWhereJsonContains('permissions', 'full_access');
+                })
                 ->exists();
 
             if ($hasAdminRole) {

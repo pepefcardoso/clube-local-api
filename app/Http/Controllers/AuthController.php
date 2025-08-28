@@ -1,8 +1,7 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Services\Auth\Login;
 use App\Services\Auth\Logout;
 use Illuminate\Http\Request;
@@ -11,7 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use App\Http\Requests\Auth\LoginRequest;
 
-class AuthController extends Controller
+class AuthController extends BaseController
 {
     public function __construct(
         private Login $loginService,
@@ -19,43 +18,33 @@ class AuthController extends Controller
     ) {
     }
 
-
     public function login(LoginRequest $request): JsonResponse
     {
         try {
             $result = $this->loginService->login($request->validated());
 
-            return response()->json([
-                'message' => 'Login bem-sucedido',
+            return $this->successResponse([
                 'user' => $result['user'],
                 'token' => $result['token'],
                 'abilities' => $result['abilities'],
-            ]);
+            ], 'Login bem-sucedido');
         } catch (ValidationException $e) {
-            return response()->json([
-                'message' => 'Credenciais inválidas',
-                'errors' => $e->errors()
-            ], 422);
+            return $this->validationErrorResponse($e->errors(), 'Credenciais inválidas');
         }
     }
-
 
     public function logout(Request $request): JsonResponse
     {
         $this->logoutService->logout(Auth::user());
 
-        return response()->json([
-            'message' => 'Logout com sucesso'
-        ]);
+        return $this->successResponse(null, 'Logout com sucesso');
     }
 
     // public function sendResetLink(ForgotPasswordRequest $request): JsonResponse
     // {
     //     Password::sendResetLink($request->validated());
 
-    //     return response()->json([
-    //         'message' => 'Se o e-mail fornecido estiver em nossa base de dados, um link para redefinição de senha será enviado.'
-    //     ]);
+    //     return $this->successResponse(null, 'Se o e-mail fornecido estiver em nossa base de dados, um link para redefinição de senha será enviado.');
     // }
 
     // public function resetPassword(ResetPasswordRequest $request): JsonResponse
@@ -69,7 +58,7 @@ class AuthController extends Controller
     //     );
 
     //     return $status === Password::PASSWORD_RESET
-    //         ? response()->json(['message' => __($status)])
-    //         : response()->json(['message' => __($status)], 400);
+    //         ? $this->successResponse(null, __($status))
+    //         : $this->errorResponse(__($status), 400);
     // }
 }
