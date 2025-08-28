@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use App\Http\Requests\StaffUserProfile\FilterStaffUsersRequest;
 use App\Http\Requests\StaffUserProfile\StoreStaffUserRequest;
 use App\Http\Requests\StaffUserProfile\UpdateStaffUserRequest;
@@ -14,11 +13,10 @@ use App\Models\StaffUserProfile;
 use App\Services\StaffUserProfile\ListStaffUsers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Auth;
 
-class StaffUserProfileController extends Controller
+class StaffUserProfileController extends BaseController
 {
-    use AuthorizesRequests;
-
     public function index(FilterStaffUsersRequest $request, ListStaffUsers $service): AnonymousResourceCollection
     {
         $staffUsers = $service->list($request->validated());
@@ -29,9 +27,10 @@ class StaffUserProfileController extends Controller
     {
         $staffUser = $service->create($request->validated());
 
-        return (new StaffUserProfileResource($staffUser))
-            ->response()
-            ->setStatusCode(201);
+        return $this->createdResponse(
+            new StaffUserProfileResource($staffUser),
+            'Usuário staff criado com sucesso'
+        );
     }
 
     public function show(StaffUserProfile $staffUserProfile): StaffUserProfileResource
@@ -41,44 +40,65 @@ class StaffUserProfileController extends Controller
         return new StaffUserProfileResource($staffUserProfile);
     }
 
-    public function update(UpdateStaffUserRequest $request, StaffUserProfile $staffUserProfile, UpdateStaffUser $service): StaffUserProfileResource
+    public function update(UpdateStaffUserRequest $request, StaffUserProfile $staffUserProfile, UpdateStaffUser $service): JsonResponse
     {
         $staffUserProfile = $service->update($staffUserProfile, $request->validated());
-        return new StaffUserProfileResource($staffUserProfile);
+
+        return $this->updatedResponse(
+            new StaffUserProfileResource($staffUserProfile),
+            'Usuário staff atualizado com sucesso'
+        );
     }
 
     public function destroy(StaffUserProfile $staffUserProfile, DeleteStaffUser $service): JsonResponse
     {
         $this->authorize('delete', $staffUserProfile);
         $service->delete($staffUserProfile);
-        return response()->json(null, 204);
+
+        return $this->deletedResponse('Usuário staff excluído com sucesso');
     }
 
     public function updatePermissions(UpdateStaffUserRequest $request, StaffUserProfile $staffUserProfile): JsonResponse
     {
         $this->authorize('update', $staffUserProfile);
 
+        $validated = $request->validated();
+
+        if (!isset($validated['system_permissions'])) {
+            return $this->errorResponse('Campo system_permissions é obrigatório', 422);
+        }
+
         $staffUserProfile->update([
-            'system_permissions' => $request->validated()['system_permissions'] ?? [],
+            'system_permissions' => $validated['system_permissions'],
         ]);
 
-        return response()->json([
-            'message' => 'Permissões atualizadas com sucesso',
-            'staff_user' => new StaffUserProfileResource($staffUserProfile)
-        ]);
+        return $this->successResponse(
+            new StaffUserProfileResource($staffUserProfile),
+            'Permissões atualizadas com sucesso'
+        );
     }
 
     public function updateAccessLevel(UpdateStaffUserRequest $request, StaffUserProfile $staffUserProfile): JsonResponse
     {
         $this->authorize('update', $staffUserProfile);
 
+        $validated = $request->validated();
+
+        if (!isset($validated['access_level'])) {
+            return $this->errorResponse('Campo access_level é obrigatório', 422);
+        }
+
         $staffUserProfile->update([
-            'access_level' => $request->validated()['access_level'],
+            'access_level' => $validated['access_level'],
         ]);
 
-        return response()->json([
-            'message' => 'Nível de acesso atualizado com sucesso',
-            'staff_user' => new StaffUserProfileResource($staffUserProfile)
-        ]);
+        if ($staffUserProfile->user && Auth::id() === $staffUserProfile->user->id) {
+            $staffUserProfile->user->generateApiToken();
+        }
+
+        return $this->successResponse(
+            new StaffUserProfileResource($staffUserProfile),
+            'Nível de acesso atualizado com sucesso'
+        );
     }
 }

@@ -72,4 +72,142 @@ class User extends Authenticatable
     {
         return $query->where('is_active', true);
     }
+
+    public function generateApiToken(): string
+    {
+        $this->tokens()->delete();
+
+        $abilities = $this->getUserAbilities();
+
+        return $this->createToken('auth-token', $abilities)->plainTextToken;
+    }
+
+    public function getUserAbilities(): array
+    {
+        $abilities = [];
+
+        // Base abilities for all users
+        $abilities[] = 'profile:read';
+        $abilities[] = 'profile:update';
+
+        if ($this->isCustomer()) {
+            $abilities = array_merge($abilities, [
+                'customer:profile:read',
+                'customer:profile:update',
+                'orders:create',
+                'orders:read',
+            ]);
+        }
+
+        if ($this->isStaff()) {
+            $staffProfile = $this->profileable;
+
+            if ($staffProfile && $staffProfile->access_level === 'admin') {
+                $abilities = array_merge($abilities, [
+                    'admin:users:read',
+                    'admin:users:create',
+                    'admin:users:update',
+                    'admin:users:delete',
+                    'admin:staff:create',
+                    'admin:staff:update',
+                    'admin:staff:delete',
+                    'admin:businesses:read',
+                    'admin:businesses:approve',
+                    'admin:system:manage',
+                ]);
+            } elseif ($staffProfile && $staffProfile->access_level === 'advanced') {
+                $abilities = array_merge($abilities, [
+                    'staff:dashboard:read',
+                    'staff:reports:read',
+                    'staff:users:read',
+                ]);
+            } else {
+                $abilities = array_merge($abilities, [
+                    'staff:dashboard:read',
+                    'staff:reports:read',
+                ]);
+            }
+        }
+
+        if ($this->isBusinessUser()) {
+            $businessProfiles = $this->businessUserProfiles()->active()->get();
+            foreach ($businessProfiles as $profile) {
+                $businessId = $profile->business_id;
+
+                if ($this->hasRole('business_admin')) {
+                    $abilities = array_merge($abilities, [
+                        "business:{$businessId}:manage",
+                        "business:{$businessId}:users:manage",
+                        "business:{$businessId}:settings:update",
+                    ]);
+                } else {
+                    $abilities = array_merge($abilities, [
+                        "business:{$businessId}:read",
+                        "business:{$businessId}:orders:read",
+                    ]);
+                }
+            }
+        }
+
+        return array_unique($abilities);
+    }
+
+    public function getAllUserRoles(): array
+    {
+        $roles = [];
+
+        if ($this->isCustomer()) {
+            $roles[] = 'customer';
+        }
+
+        if ($this->isBusinessUser()) {
+            $roles[] = 'business_user';
+
+            $hasAdminRole = $this->businessUserProfiles()
+                ->whereHas('business', function ($query) {
+                    $query->where('status', 'active');
+                })
+                ->where('permissions', 'like', '%admin%')
+                ->exists();
+
+            if ($hasAdminRole) {
+                $roles[] = 'business_admin';
+            }
+        }
+
+        if ($this->isStaff()) {
+            $staffProfile = $this->profileable;
+            if ($staffProfile) {
+                switch ($staffProfile->access_level) {
+                    case 'admin':
+                        $roles[] = 'staff_admin';
+                        break;
+                    case 'advanced':
+                        $roles[] = 'staff_advanced';
+                        break;
+                    default:
+                        $roles[] = 'staff_basic';
+                }
+            }
+        }
+
+        return $roles;
+    }
+
+    public function hasBusinessAdminPermission(int $businessId): bool
+    {
+        if (!$this->isBusinessUser()) {
+            return false;
+        }
+
+        return $this->businessUserProfiles()
+            ->where('business_id', $businessId)
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereJsonContains('permissions', 'admin')
+                    ->orWhereJsonContains('permissions', 'manage_users')
+                    ->orWhereJsonContains('permissions', 'full_access');
+            })
+            ->exists();
+    }
 }

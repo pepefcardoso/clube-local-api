@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use App\Http\Requests\User\FilterUsersRequest;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
@@ -15,11 +14,10 @@ use App\Services\User\ListUsers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Auth;
 
-class UserController extends Controller
+class UserController extends BaseController
 {
-    use AuthorizesRequests;
-
     public function index(FilterUsersRequest $request, ListUsers $service): AnonymousResourceCollection
     {
         $users = $service->list($request->validated());
@@ -30,9 +28,10 @@ class UserController extends Controller
     {
         $user = $service->create($request->validated());
 
-        return (new UserResource($user))
-            ->response()
-            ->setStatusCode(201);
+        return $this->createdResponse(
+            new UserResource($user),
+            'Usuário criado com sucesso'
+        );
     }
 
     public function show(User $user): UserResource
@@ -49,17 +48,22 @@ class UserController extends Controller
         return new UserResource($user);
     }
 
-    public function update(UpdateUserRequest $request, User $user, UpdateUser $service): UserResource
+    public function update(UpdateUserRequest $request, User $user, UpdateUser $service): JsonResponse
     {
         $user = $service->update($user, $request->validated());
-        return new UserResource($user);
+
+        return $this->updatedResponse(
+            new UserResource($user),
+            'Usuário atualizado com sucesso'
+        );
     }
 
     public function destroy(User $user, DeleteUser $service): JsonResponse
     {
         $this->authorize('delete', $user);
         $service->delete($user);
-        return response()->json(null, 204);
+
+        return $this->deletedResponse('Usuário excluído com sucesso');
     }
 
     public function activate(User $user): JsonResponse
@@ -68,22 +72,23 @@ class UserController extends Controller
 
         $user->update(['is_active' => true]);
 
-        return response()->json([
-            'message' => 'Usuário ativado com sucesso',
-            'user' => new UserResource($user)
-        ]);
+        return $this->successResponse(
+            new UserResource($user),
+            'Usuário ativado com sucesso'
+        );
     }
 
     public function deactivate(User $user): JsonResponse
     {
         $this->authorize('update', $user);
 
+        // Revoke all tokens when deactivating
         $user->tokens()->delete();
         $user->update(['is_active' => false]);
 
-        return response()->json([
-            'message' => 'Usuário desativado com sucesso',
-            'user' => new UserResource($user)
-        ]);
+        return $this->successResponse(
+            new UserResource($user),
+            'Usuário desativado com sucesso'
+        );
     }
 }
