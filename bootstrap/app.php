@@ -12,9 +12,6 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->api(prepend: [
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-        ]);
         $middleware->alias([
             'check.user.role' => \App\Http\Middleware\CheckUserRole::class,
             'check.business.access' => \App\Http\Middleware\CheckBusinessAccess::class,
