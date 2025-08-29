@@ -15,9 +15,24 @@ class CheckUserRole
         }
 
         $user = Auth::user();
-        $userRoles = $user->getAllUserRoles();
+        $hasRole = false;
 
-        $hasRole = !empty(array_intersect($roles, $userRoles));
+        foreach ($roles as $role) {
+            $hasRole = match ($role) {
+                'customer' => $user->isCustomer(),
+                'business_user' => $user->isBusinessUser(),
+                'business_manager' => $user->isBusinessUser() && $user->profileable->isManager(),
+                'business_admin' => $user->isBusinessUser() && $user->profileable->isAdmin(),
+                'staff_basic' => $user->isStaff() && $user->profileable->isBasic(),
+                'staff_advanced' => $user->isStaff() && $user->profileable->isAdvanced(),
+                'staff_admin' => $user->isStaff() && $user->profileable->isAdmin(),
+                default => false,
+            };
+
+            if ($hasRole) {
+                break;
+            }
+        }
 
         if (!$hasRole) {
             return response()->json(['message' => 'Insufficient permissions'], 403);

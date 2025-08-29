@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ProfileStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
@@ -12,14 +13,14 @@ class StaffUserProfile extends Model
     use HasFactory;
 
     protected $fillable = [
+        'status',
         'access_level',
-        'system_permissions',
     ];
 
     protected function casts(): array
     {
         return [
-            'system_permissions' => 'array',
+            'status' => ProfileStatus::class,
             'access_level' => StaffAccessLevel::class,
         ];
     }
@@ -27,11 +28,6 @@ class StaffUserProfile extends Model
     public function user(): MorphOne
     {
         return $this->morphOne(User::class, 'profileable');
-    }
-
-    public function hasSystemPermission(string $permission): bool
-    {
-        return in_array($permission, $this->system_permissions ?? []);
     }
 
     public function isAdmin(): bool
@@ -56,16 +52,16 @@ class StaffUserProfile extends Model
 
     public function canManageUsers(): bool
     {
-        return $this->hasSystemPermission('admin:users:read') || $this->isAdmin();
+        return $this->isAdvanced() || $this->isAdmin();
     }
 
     public function canManageBusinesses(): bool
     {
-        return $this->hasSystemPermission('admin:businesses:read') || $this->isAdmin();
+        return $this->isAdvanced() || $this->isAdmin();
     }
 
     public function canAccessSystemSettings(): bool
     {
-        return $this->hasSystemPermission('admin:system:manage') || $this->isAdmin();
+        return $this->isAdmin();
     }
 }

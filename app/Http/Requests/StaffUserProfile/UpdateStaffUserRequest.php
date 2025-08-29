@@ -16,7 +16,7 @@ class UpdateStaffUserRequest extends FormRequest
 
         return ($user &&
             $user->isStaff() &&
-            $user->profileable->access_level === 'admin' &&
+            $user->profileable->isAdmin() &&
             Gate::allows('update', $staffProfile)) ||
             ($staffProfile->user && $staffProfile->user->id === $user->id);
     }
@@ -28,8 +28,6 @@ class UpdateStaffUserRequest extends FormRequest
 
         $rules = [
             'access_level' => ['sometimes', 'string', 'in:basic,advanced,admin'],
-            'system_permissions' => ['sometimes', 'array'],
-            'system_permissions.*' => ['string', 'in:admin:users:read,admin:users:create,admin:users:update,admin:users:delete,admin:staff:create,admin:staff:update,admin:staff:delete,admin:businesses:read,admin:businesses:approve,admin:system:manage,staff:dashboard:read,staff:reports:read'],
         ];
 
         if ($user) {
@@ -49,7 +47,7 @@ class UpdateStaffUserRequest extends FormRequest
         $currentUser = Auth::user();
         if ($currentUser && $staffProfile->user && $currentUser->id === $staffProfile->user->id) {
             unset($rules['user_data.is_active']);
-            if ($staffProfile->access_level === 'admin') {
+            if ($staffProfile->isAdmin()) {
                 unset($rules['access_level']);
             }
         }

@@ -17,10 +17,6 @@ class UpdateStaffUser
                 $staffData['access_level'] = $data['access_level'];
             }
 
-            if (isset($data['system_permissions'])) {
-                $staffData['system_permissions'] = $data['system_permissions'];
-            }
-
             if (!empty($staffData)) {
                 $staffProfile->update($staffData);
             }

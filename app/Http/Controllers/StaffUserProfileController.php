@@ -30,7 +30,7 @@ class StaffUserProfileController extends BaseController
         $data = $request->validated();
 
         if ($data['access_level'] === 'admin') {
-            $this->authorize('createAdmin', StaffUserProfile::class);
+            $this->authorize('promoteToAdmin', new StaffUserProfile());
         }
 
         $staffUser = $service->create($data);
@@ -56,7 +56,7 @@ class StaffUserProfileController extends BaseController
 
         if (isset($data['access_level'])) {
             $newLevel = $data['access_level'];
-            $currentLevel = $staffUserProfile->access_level;
+            $currentLevel = $staffUserProfile->access_level->value;
 
             if ($newLevel === 'admin' && $currentLevel !== 'admin') {
                 $this->authorize('promoteToAdmin', $staffUserProfile);
@@ -83,26 +83,6 @@ class StaffUserProfileController extends BaseController
         return $this->deletedResponse('Usuário staff excluído com sucesso');
     }
 
-    public function updatePermissions(UpdateStaffUserRequest $request, StaffUserProfile $staffUserProfile): JsonResponse
-    {
-        $this->authorize('update', $staffUserProfile);
-
-        $validated = $request->validated();
-
-        if (!isset($validated['system_permissions'])) {
-            return $this->errorResponse('Campo system_permissions é obrigatório', 422);
-        }
-
-        $staffUserProfile->update([
-            'system_permissions' => $validated['system_permissions'],
-        ]);
-
-        return $this->successResponse(
-            new StaffUserProfileResource($staffUserProfile),
-            'Permissões atualizadas com sucesso'
-        );
-    }
-
     public function updateAccessLevel(UpdateStaffUserRequest $request, StaffUserProfile $staffUserProfile): JsonResponse
     {
         $this->authorize('update', $staffUserProfile);
@@ -111,6 +91,17 @@ class StaffUserProfileController extends BaseController
 
         if (!isset($validated['access_level'])) {
             return $this->errorResponse('Campo access_level é obrigatório', 422);
+        }
+
+        $currentLevel = $staffUserProfile->access_level->value;
+        $newLevel = $validated['access_level'];
+
+        if ($newLevel === 'admin' && $currentLevel !== 'admin') {
+            $this->authorize('promoteToAdmin', $staffUserProfile);
+        }
+
+        if ($currentLevel === 'admin' && $newLevel !== 'admin') {
+            $this->authorize('demoteFromAdmin', $staffUserProfile);
         }
 
         $staffUserProfile->update([

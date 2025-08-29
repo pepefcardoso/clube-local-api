@@ -21,7 +21,7 @@ class CheckBusinessAccess
             return response()->json(['message' => 'Business ID is required'], 400);
         }
 
-        if ($user->isStaff() && $user->profileable->access_level === 'admin') {
+        if ($user->isStaff() && $user->profileable->isAdmin()) {
             return $next($request);
         }
 
@@ -31,7 +31,7 @@ class CheckBusinessAccess
             if (
                 $businessProfile &&
                 $businessProfile->business_id == $businessId &&
-                $businessProfile->status === 'active'
+                $businessProfile->isActive()
             ) {
                 return $next($request);
             }

@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::create('staff_user_profiles', function (Blueprint $table) {
             $table->id();
+            $table->string('status')->default('active');
             $table->string('access_level')->default('basic');
-            $table->json('system_permissions')->nullable();
             $table->timestamps();
         });
     }

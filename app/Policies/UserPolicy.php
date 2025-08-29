@@ -8,12 +8,12 @@ class UserPolicy
 {
     public function viewAny(User $user): bool
     {
-        if ($user->isStaff() && $user->profileable->access_level === 'admin') {
-            return true;
+        if ($user->isStaff()) {
+            return $user->profileable->isAdvanced() || $user->profileable->isAdmin();
         }
 
         if ($user->isBusinessUser()) {
-            return true;
+            return $user->profileable->canManageUsers();
         }
 
         return false;
@@ -25,23 +25,20 @@ class UserPolicy
             return true;
         }
 
-        if ($user->isStaff() && $user->profileable->access_level === 'admin') {
-            return true;
+        if ($user->isStaff()) {
+            return $user->profileable->isAdvanced() || $user->profileable->isAdmin();
         }
 
-        if ($user->isBusinessUser() && $model->isBusinessUser()) {
-            $userBusinessId = $user->profileable->business_id;
-            $modelBusinessId = $model->profileable->business_id;
+        if ($user->isBusinessUser() && $user->profileable->canManageUsers()) {
+            if ($model->isBusinessUser()) {
+                return $user->profileable->business_id === $model->profileable->business_id;
+            }
 
-            return $userBusinessId === $modelBusinessId;
-        }
-
-        if ($user->isBusinessUser() && $model->isCustomer()) {
-            $userBusinessId = $user->profileable->business_id;
-
-            return $model->profileable->businesses()
-                ->where('business_id', $userBusinessId)
-                ->exists();
+            if ($model->isCustomer()) {
+                return $model->profileable->businesses()
+                    ->where('business_id', $user->profileable->business_id)
+                    ->exists();
+            }
         }
 
         return false;
@@ -49,12 +46,12 @@ class UserPolicy
 
     public function create(User $user): bool
     {
-        if ($user->isStaff() && $user->profileable->access_level === 'admin') {
-            return true;
+        if ($user->isStaff()) {
+            return $user->profileable->isAdmin();
         }
 
-        if ($user->isBusinessUser() && $user->hasRole('business_admin')) {
-            return true;
+        if ($user->isBusinessUser()) {
+            return $user->profileable->isAdmin();
         }
 
         return false;
@@ -66,23 +63,20 @@ class UserPolicy
             return true;
         }
 
-        if ($user->isStaff() && $user->profileable->access_level === 'admin') {
-            return true;
+        if ($user->isStaff()) {
+            return $user->profileable->isAdmin();
         }
 
-        if ($user->isBusinessUser() && $user->hasRole('business_admin') && $model->isBusinessUser()) {
-            $userBusinessId = $user->profileable->business_id;
-            $modelBusinessId = $model->profileable->business_id;
+        if ($user->isBusinessUser() && $user->profileable->isAdmin()) {
+            if ($model->isBusinessUser()) {
+                return $user->profileable->business_id === $model->profileable->business_id;
+            }
 
-            return $userBusinessId === $modelBusinessId;
-        }
-
-        if ($user->isBusinessUser() && $user->hasRole('business_admin') && $model->isCustomer()) {
-            $userBusinessId = $user->profileable->business_id;
-
-            return $model->profileable->businesses()
-                ->where('business_id', $userBusinessId)
-                ->exists();
+            if ($model->isCustomer()) {
+                return $model->profileable->businesses()
+                    ->where('business_id', $user->profileable->business_id)
+                    ->exists();
+            }
         }
 
         return false;
@@ -94,36 +88,15 @@ class UserPolicy
             return false;
         }
 
-        if ($user->isStaff() && $user->profileable->access_level === 'admin') {
-            if ($model->isStaff() && $model->profileable->access_level === 'admin') {
+        if ($user->isStaff() && $user->profileable->isAdmin()) {
+            if ($model->isStaff() && $model->profileable->isAdmin()) {
                 return false;
             }
             return true;
         }
 
-        if ($user->isBusinessUser() && $user->hasRole('business_admin') && $model->isBusinessUser()) {
-            $userBusinessId = $user->profileable->business_id;
-            $modelBusinessId = $model->profileable->business_id;
-
-            return $userBusinessId === $modelBusinessId;
-        }
-
-        return false;
-    }
-
-    public function restore(User $user, User $model): bool
-    {
-        if ($user->isStaff() && $user->profileable->access_level === 'admin') {
-            return true;
-        }
-
-        return false;
-    }
-
-    public function forceDelete(User $user, User $model): bool
-    {
-        if ($user->isStaff() && $user->profileable->access_level === 'admin') {
-            return true;
+        if ($user->isBusinessUser() && $user->profileable->isAdmin() && $model->isBusinessUser()) {
+            return $user->profileable->business_id === $model->profileable->business_id;
         }
 
         return false;

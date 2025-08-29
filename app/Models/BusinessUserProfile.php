@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use App\Enums\ProfileStatus;
+use App\Enums\BusinessAccessLevel;
 
 class BusinessUserProfile extends Model
 {
@@ -15,14 +16,14 @@ class BusinessUserProfile extends Model
     protected $fillable = [
         'business_id',
         'status',
-        'permissions',
+        'access_level',
     ];
 
     protected function casts(): array
     {
         return [
-            'permissions' => 'array',
             'status' => ProfileStatus::class,
+            'access_level' => BusinessAccessLevel::class,
         ];
     }
 
@@ -46,15 +47,28 @@ class BusinessUserProfile extends Model
         return $this->status === ProfileStatus::Active;
     }
 
-    public function hasPermission(string $permission): bool
+    public function isUser(): bool
     {
-        return in_array($permission, $this->permissions ?? []);
+        return $this->access_level === BusinessAccessLevel::User;
     }
 
-    public function hasAdminPermission(): bool
+    public function isManager(): bool
     {
-        return $this->hasPermission('admin') ||
-            $this->hasPermission('manage_users') ||
-            $this->hasPermission('full_access');
+        return $this->access_level === BusinessAccessLevel::Manager;
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->access_level === BusinessAccessLevel::Admin;
+    }
+
+    public function canManageUsers(): bool
+    {
+        return $this->isManager() || $this->isAdmin();
+    }
+
+    public function canManageBusiness(): bool
+    {
+        return $this->isAdmin();
     }
 }

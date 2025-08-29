@@ -20,8 +20,6 @@ class StoreStaffUserRequest extends FormRequest
             'phone' => ['nullable', 'string', 'max:20'],
             'is_active' => ['nullable', 'boolean'],
             'access_level' => ['required', 'string', 'in:basic,advanced,admin'],
-            'system_permissions' => ['nullable', 'array'],
-            'system_permissions.*' => ['string', 'in:admin:users:read,admin:users:create,admin:users:update,admin:users:delete,admin:staff:create,admin:staff:update,admin:staff:delete,admin:businesses:read,admin:businesses:approve,admin:system:manage,staff:dashboard:read,staff:reports:read'],
         ];
     }
 }

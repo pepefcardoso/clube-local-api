@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use App\Enums\ProfileStatus;
+use App\Enums\CustomerAccessLevel;
 
 class CustomerProfile extends Model
 {
@@ -16,6 +17,7 @@ class CustomerProfile extends Model
         'cpf',
         'birth_date',
         'status',
+        'access_level',
     ];
 
     protected function casts(): array
@@ -23,6 +25,7 @@ class CustomerProfile extends Model
         return [
             'birth_date' => 'date',
             'status' => ProfileStatus::class,
+            'access_level' => CustomerAccessLevel::class,
         ];
     }
 
@@ -44,5 +47,20 @@ class CustomerProfile extends Model
     public function isActive(): bool
     {
         return $this->status === ProfileStatus::Active;
+    }
+
+    public function isBasic(): bool
+    {
+        return $this->access_level === CustomerAccessLevel::Basic;
+    }
+
+    public function isPremium(): bool
+    {
+        return $this->access_level === CustomerAccessLevel::Premium;
+    }
+
+    public function isVIP(): bool
+    {
+        return $this->access_level === CustomerAccessLevel::VIP;
     }
 }

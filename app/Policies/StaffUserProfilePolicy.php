@@ -9,24 +9,30 @@ class StaffUserProfilePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $this->isStaffAdmin($user);
+        return $user->isStaff() && $user->profileable->isAdmin();
     }
 
     public function view(User $user, StaffUserProfile $staffUserProfile): bool
     {
-        return ($staffUserProfile->user && $user->id === $staffUserProfile->user->id) ||
-            $this->isStaffAdmin($user);
+        if ($staffUserProfile->user && $user->id === $staffUserProfile->user->id) {
+            return true;
+        }
+
+        return $user->isStaff() && $user->profileable->isAdmin();
     }
 
     public function create(User $user): bool
     {
-        return $this->isStaffAdmin($user);
+        return $user->isStaff() && $user->profileable->isAdmin();
     }
 
     public function update(User $user, StaffUserProfile $staffUserProfile): bool
     {
-        return ($staffUserProfile->user && $user->id === $staffUserProfile->user->id) ||
-            $this->isStaffAdmin($user);
+        if ($staffUserProfile->user && $user->id === $staffUserProfile->user->id) {
+            return true;
+        }
+
+        return $user->isStaff() && $user->profileable->isAdmin();
     }
 
     public function delete(User $user, StaffUserProfile $staffUserProfile): bool
@@ -35,32 +41,28 @@ class StaffUserProfilePolicy
             return false;
         }
 
-        if (!$this->isStaffAdmin($user)) {
+        if (!($user->isStaff() && $user->profileable->isAdmin())) {
             return false;
         }
 
-        if ($staffUserProfile->access_level === 'admin') {
-            return $this->canManageAdmin($user);
+        if ($staffUserProfile->isAdmin()) {
+            $adminCount = StaffUserProfile::where('access_level', 'admin')
+                ->whereHas('user', fn($q) => $q->where('is_active', true))
+                ->count();
+
+            return $adminCount > 1;
         }
 
         return true;
     }
 
-    public function createAdmin(User $user): bool
-    {
-        return $this->canManageAdmin($user);
-    }
-
     public function promoteToAdmin(User $user, StaffUserProfile $staffUserProfile): bool
     {
-        if (
-            $staffUserProfile->user && $user->id === $staffUserProfile->user->id &&
-            $user->profileable->access_level !== 'admin'
-        ) {
+        if ($staffUserProfile->user && $user->id === $staffUserProfile->user->id && !$user->profileable->isAdmin()) {
             return false;
         }
 
-        return $this->canManageAdmin($user);
+        return $user->isStaff() && $user->profileable->isAdmin();
     }
 
     public function demoteFromAdmin(User $user, StaffUserProfile $staffUserProfile): bool
@@ -69,28 +71,14 @@ class StaffUserProfilePolicy
             return false;
         }
 
-        if ($this->isLastAdmin($staffUserProfile)) {
+        $adminCount = StaffUserProfile::where('access_level', 'admin')
+            ->whereHas('user', fn($q) => $q->where('is_active', true))
+            ->count();
+
+        if ($adminCount <= 1) {
             return false;
         }
 
-        return $this->canManageAdmin($user);
-    }
-
-    private function isStaffAdmin(User $user): bool
-    {
-        return $user->isStaff() && $user->profileable->access_level === 'admin';
-    }
-
-    private function canManageAdmin(User $user): bool
-    {
-        return $this->isStaffAdmin($user);
-    }
-
-    private function isLastAdmin(StaffUserProfile $staffUserProfile): bool
-    {
-        return $staffUserProfile->access_level === 'admin' &&
-            StaffUserProfile::where('access_level', 'admin')
-                ->whereHas('user', fn($q) => $q->where('is_active', true))
-                ->count() <= 1;
+        return $user->isStaff() && $user->profileable->isAdmin();
     }
 }

@@ -28,23 +28,24 @@ class UpdateUserRequest extends FormRequest
 
         if ($user->isCustomer()) {
             $rules['profile_data.cpf'] = [
-                'sometimes', 'nullable', 'string', new ValidCPF,
+                'sometimes',
+                'nullable',
+                'string',
+                new ValidCPF,
                 Rule::unique('customer_profiles', 'cpf')->ignore($user->profileable->id)
             ];
             $rules['profile_data.birth_date'] = ['sometimes', 'nullable', 'date', 'before:today'];
             $rules['profile_data.status'] = ['sometimes', 'string', 'in:active,inactive,suspended'];
+            $rules['profile_data.access_level'] = ['sometimes', 'string', 'in:basic,premium,vip'];
         }
 
         if ($user->isBusinessUser()) {
             $rules['profile_data.status'] = ['sometimes', 'string', 'in:active,inactive,suspended'];
-            $rules['profile_data.permissions'] = ['sometimes', 'array'];
-            $rules['profile_data.permissions.*'] = ['string'];
+            $rules['profile_data.access_level'] = ['sometimes', 'string', 'in:user,manager,admin'];
         }
 
         if ($user->isStaff()) {
             $rules['profile_data.access_level'] = ['sometimes', 'string', 'in:basic,advanced,admin'];
-            $rules['profile_data.system_permissions'] = ['sometimes', 'array'];
-            $rules['profile_data.system_permissions.*'] = ['string'];
         }
 
         return $rules;

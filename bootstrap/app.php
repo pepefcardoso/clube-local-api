@@ -15,7 +15,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'check.user.role' => \App\Http\Middleware\CheckUserRole::class,
             'check.business.access' => \App\Http\Middleware\CheckBusinessAccess::class,
-            'check.token.ability' => \App\Http\Middleware\CheckTokenAbility::class,
             'ensure.active.user' => \App\Http\Middleware\EnsureActiveUser::class,
         ]);
     })

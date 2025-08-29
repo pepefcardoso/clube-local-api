@@ -25,7 +25,6 @@ class Login
         return [
             'user' => $user->load('profileable'),
             'token' => $token,
-            'abilities' => $user->getUserAbilities(),
         ];
     }
 }

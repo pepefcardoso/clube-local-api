@@ -28,19 +28,17 @@ class StoreUserRequest extends FormRequest
             $rules['cpf'] = ['nullable', 'string', new ValidCPF, 'unique:customer_profiles'];
             $rules['birth_date'] = ['nullable', 'date', 'before:today'];
             $rules['status'] = ['nullable', 'string', 'in:active,inactive,suspended'];
+            $rules['access_level'] = ['nullable', 'string', 'in:basic,premium,vip'];
         }
 
         if ($this->input('profile_type') === 'business') {
             $rules['business_id'] = ['required', 'exists:businesses,id'];
             $rules['status'] = ['nullable', 'string', 'in:active,inactive,suspended'];
-            $rules['permissions'] = ['nullable', 'array'];
-            $rules['permissions.*'] = ['string'];
+            $rules['access_level'] = ['nullable', 'string', 'in:user,manager,admin'];
         }
 
         if ($this->input('profile_type') === 'staff') {
             $rules['access_level'] = ['nullable', 'string', 'in:basic,advanced,admin'];
-            $rules['system_permissions'] = ['nullable', 'array'];
-            $rules['system_permissions.*'] = ['string'];
         }
 
         return $rules;

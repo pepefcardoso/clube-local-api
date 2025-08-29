@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('business_id')->constrained()->cascadeOnDelete();
             $table->string('status')->default('active');
-            $table->json('permissions')->nullable();
+            $table->string('access_level')->default('user');
             $table->timestamps();
             $table->index(['business_id', 'status']);
         });

@@ -2,18 +2,16 @@
 
 namespace App\Models;
 
-use App\Traits\HasUserAbilities;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasApiTokens, HasRoles, SoftDeletes, HasUserAbilities;
+    use HasFactory, Notifiable, HasApiTokens, SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -74,39 +72,9 @@ class User extends Authenticatable
         return $query->where('is_active', true);
     }
 
-    public function getAllUserRoles(): array
+    public function generateApiToken(): string
     {
-        $roles = [];
-
-        if ($this->isCustomer()) {
-            $roles[] = 'customer';
-        }
-
-        if ($this->isBusinessUser()) {
-            $roles[] = 'business_user';
-
-            $businessProfile = $this->profileable;
-            if ($businessProfile && $businessProfile->hasPermission('admin')) {
-                $roles[] = 'business_admin';
-            }
-        }
-
-        if ($this->isStaff()) {
-            $staffProfile = $this->profileable;
-            if ($staffProfile) {
-                switch ($staffProfile->access_level) {
-                    case 'admin':
-                        $roles[] = 'staff_admin';
-                        break;
-                    case 'advanced':
-                        $roles[] = 'staff_advanced';
-                        break;
-                    default:
-                        $roles[] = 'staff_basic';
-                }
-            }
-        }
-
-        return $roles;
+        $this->tokens()->delete();
+        return $this->createToken('auth-token')->plainTextToken;
     }
 }

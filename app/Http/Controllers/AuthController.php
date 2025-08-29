@@ -26,7 +26,6 @@ class AuthController extends BaseController
             return $this->successResponse([
                 'user' => $result['user'],
                 'token' => $result['token'],
-                'abilities' => $result['abilities'],
             ], 'Login bem-sucedido');
         } catch (ValidationException $e) {
             return $this->validationErrorResponse($e->errors(), 'Credenciais inválidas');

@@ -22,7 +22,6 @@ class CreateStaffUser
 
             $staffProfile = StaffUserProfile::create([
                 'access_level' => $data['access_level'] ?? 'basic',
-                'system_permissions' => $data['system_permissions'] ?? [],
             ]);
 
             $user->update([

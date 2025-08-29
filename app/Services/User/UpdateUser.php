@@ -54,16 +54,16 @@ class UpdateUser
                 'cpf' => null,
                 'birth_date' => null,
                 'status' => null,
+                'access_level' => null,
             ]));
         } elseif ($profile instanceof \App\Models\BusinessUserProfile) {
             $profile->update(array_intersect_key($profileData, [
                 'status' => null,
-                'permissions' => null,
+                'access_level' => null,
             ]));
         } elseif ($profile instanceof \App\Models\StaffUserProfile) {
             $profile->update(array_intersect_key($profileData, [
                 'access_level' => null,
-                'system_permissions' => null,
             ]));
         }
     }

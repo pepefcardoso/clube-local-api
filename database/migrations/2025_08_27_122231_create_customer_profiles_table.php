@@ -13,6 +13,7 @@ return new class extends Migration
             $table->string('cpf')->unique()->nullable();
             $table->date('birth_date')->nullable();
             $table->string('status')->default('active');
+            $table->string('access_level')->default('basic');
             $table->timestamps();
         });
     }
