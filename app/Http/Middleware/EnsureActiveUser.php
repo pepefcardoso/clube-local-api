@@ -15,10 +15,8 @@ class EnsureActiveUser
         }
 
         $user = Auth::user();
-
         if (!$user->is_active) {
             $user->tokens()->delete();
-
             return response()->json(['message' => 'Account is inactive'], 403);
         }
 

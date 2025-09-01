@@ -3,6 +3,9 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\StaffUserProfileController;
+use App\Http\Controllers\BusinessController;
+use App\Http\Controllers\BusinessUserProfileController;
+use App\Http\Controllers\CustomerProfileController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -21,25 +24,21 @@ Route::middleware(['auth:sanctum', 'ensure.active.user'])->group(function () {
 
     Route::get('/profile', [UserController::class, 'profile']);
 
-    Route::prefix('users')->group(function () {
-        Route::get('/', [UserController::class, 'index']);
-        Route::post('/', [UserController::class, 'store']);
-        Route::get('/{user}', [UserController::class, 'show']);
-        Route::put('/{user}', [UserController::class, 'update']);
-        Route::delete('/{user}', [UserController::class, 'destroy']);
-        Route::patch('/{user}/activate', [UserController::class, 'activate']);
-        Route::patch('/{user}/deactivate', [UserController::class, 'deactivate']);
-    });
+    Route::apiResource('users', UserController::class)->except(['create', 'edit']);
+    Route::patch('/users/{user}/activate', [UserController::class, 'activate']);
+    Route::patch('/users/{user}/deactivate', [UserController::class, 'deactivate']);
 
-    Route::middleware(['auth:sanctum', 'ensure.active.user'])
-        ->prefix('staff')
+    Route::apiResource('staff', StaffUserProfileController::class)->except(['create', 'edit']);
+    Route::patch('/staff/{staffUserProfile}/access-level', [StaffUserProfileController::class, 'updateAccessLevel']);
+
+    Route::apiResource('businesses', BusinessController::class)->except(['create', 'edit']);
+
+    Route::middleware(['check.business.access'])
+        ->prefix('businesses/{business_id}')
         ->group(function () {
-            Route::get('/', [StaffUserProfileController::class, 'index']);
-            Route::post('/', [StaffUserProfileController::class, 'store']);
-            Route::get('/{staffUserProfile}', [StaffUserProfileController::class, 'show']);
-            Route::put('/{staffUserProfile}', [StaffUserProfileController::class, 'update']);
-            Route::delete('/{staffUserProfile}', [StaffUserProfileController::class, 'destroy']);
-            Route::patch('/{staffUserProfile}/permissions', [StaffUserProfileController::class, 'updatePermissions']);
-            Route::patch('/{staffUserProfile}/access-level', [StaffUserProfileController::class, 'updateAccessLevel']);
+            Route::apiResource('users', BusinessUserProfileController::class)->except(['create', 'edit']);
+            Route::apiResource('customers', CustomerProfileController::class)->except(['create', 'edit']);
         });
+
+    Route::apiResource('customers', CustomerProfileController::class)->except(['create', 'edit']);
 });
