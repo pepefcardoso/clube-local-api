@@ -25,6 +25,7 @@ class Business extends Model
         'status',
         'approved_at',
         'approved_by',
+        'platform_plan_id',
     ];
 
     protected function casts(): array
@@ -50,6 +51,11 @@ class Business extends Model
         return $this->belongsTo(User::class, 'approved_by');
     }
 
+    public function platformPlan(): BelongsTo
+    {
+        return $this->belongsTo(PlatformPlan::class);
+    }
+
     public function scopeActive($query)
     {
         return $query->where('status', BusinessStatus::Active);
@@ -68,5 +74,36 @@ class Business extends Model
     public function isApproved(): bool
     {
         return !is_null($this->approved_at) && $this->isActive();
+    }
+
+    public function hasActivePlan(): bool
+    {
+        return $this->platformPlan && $this->platformPlan->is_active;
+    }
+
+    public function canAddMoreUsers(): bool
+    {
+        if (!$this->hasActivePlan()) {
+            return false;
+        }
+
+        if ($this->platformPlan->hasUnlimitedUsers()) {
+            return true;
+        }
+
+        return $this->businessUserProfiles()->count() < $this->platformPlan->max_users;
+    }
+
+    public function canAddMoreCustomers(): bool
+    {
+        if (!$this->hasActivePlan()) {
+            return false;
+        }
+
+        if ($this->platformPlan->hasUnlimitedCustomers()) {
+            return true;
+        }
+
+        return $this->customers()->count() < $this->platformPlan->max_customers;
     }
 }

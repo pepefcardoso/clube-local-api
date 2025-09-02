@@ -13,9 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
-            'check.user.role' => \App\Http\Middleware\CheckUserRole::class,
             'check.business.access' => \App\Http\Middleware\CheckBusinessAccess::class,
             'ensure.active.user' => \App\Http\Middleware\EnsureActiveUser::class,
+            'check.plan.limits' => \App\Http\Middleware\CheckPlanLimits::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

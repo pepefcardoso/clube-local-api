@@ -22,6 +22,7 @@ return new class extends Migration {
             $table->string('status')->default('pending');
             $table->timestamp('approved_at')->nullable();
             $table->foreignId('approved_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('platform_plan_id')->nullable()->after('approved_by')->constrained('platform_plans')->nullOnDelete();
             $table->timestamps();
             $table->softDeletes();
             $table->index(['status', 'approved_at']);
