@@ -10,7 +10,7 @@ class ListAddresses
 {
     public function list(array $filters = []): LengthAwarePaginator
     {
-        $query = Address::query();
+        $query = Address::query()->with('addressable');
 
         $this->applyFilters($query, $filters);
 
@@ -22,6 +22,11 @@ class ListAddresses
 
     private function applyFilters(Builder $query, array $filters): void
     {
+        if (!empty($filters['addressable_id']) && !empty($filters['addressable_type'])) {
+            $query->where('addressable_id', $filters['addressable_id'])
+                ->where('addressable_type', $filters['addressable_type']);
+        }
+
         if (!empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {

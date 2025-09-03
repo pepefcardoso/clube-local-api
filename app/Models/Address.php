@@ -2,14 +2,18 @@
 
 namespace App\Models;
 
+use App\Enums\AddressType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Address extends Model
 {
     use HasFactory;
 
     protected $fillable = [
+        'addressable_id',
+        'addressable_type',
         'street',
         'number',
         'complement',
@@ -30,7 +34,13 @@ class Address extends Model
             'is_primary' => 'boolean',
             'latitude' => 'decimal:8',
             'longitude' => 'decimal:8',
+            'type' => AddressType::class,
         ];
+    }
+
+    public function addressable(): MorphTo
+    {
+        return $this->morphTo();
     }
 
     public function getFullAddressAttribute(): string
@@ -85,28 +95,48 @@ class Address extends Model
         return $query->where('zip_code', $cleanZipCode);
     }
 
+    public function scopeForEntity($query, $entity)
+    {
+        return $query->where('addressable_id', $entity->id)
+            ->where('addressable_type', get_class($entity));
+    }
+
     public function isResidential(): bool
     {
-        return $this->type === 'residential';
+        return $this->type === AddressType::Residential;
     }
 
     public function isCommercial(): bool
     {
-        return $this->type === 'commercial';
+        return $this->type === AddressType::Commercial;
     }
 
     public function isBilling(): bool
     {
-        return $this->type === 'billing';
+        return $this->type === AddressType::Billing;
     }
 
     public function isShipping(): bool
     {
-        return $this->type === 'shipping';
+        return $this->type === AddressType::Shipping;
     }
 
     public function hasCoordinates(): bool
     {
         return !is_null($this->latitude) && !is_null($this->longitude);
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saving(function (Address $address) {
+            if ($address->is_primary && $address->addressable_id && $address->addressable_type) {
+                static::where('addressable_id', $address->addressable_id)
+                    ->where('addressable_type', $address->addressable_type)
+                    ->where('id', '!=', $address->id ?? 0)
+                    ->update(['is_primary' => false]);
+            }
+        });
     }
 }

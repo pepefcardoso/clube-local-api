@@ -1,5 +1,5 @@
 <?php
-// app/Http/Controllers/BaseController.php - For extended functionality
+
 namespace App\Http\Controllers;
 
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;

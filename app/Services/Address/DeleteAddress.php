@@ -5,19 +5,26 @@ namespace App\Services\Address;
 use App\Models\Address;
 use Illuminate\Support\Facades\DB;
 
+
 class DeleteAddress
 {
     public function delete(Address $address): void
     {
         DB::transaction(function () use ($address) {
             $wasPrimary = $address->is_primary;
+            $addressableId = $address->addressable_id;
+            $addressableType = $address->addressable_type;
 
             $address->delete();
 
-            // If the deleted address was primary, set another address as primary
-            if ($wasPrimary) {
-                // This will be implemented when relationships are added
-                // We would find the next address for the same owner and set it as primary
+            if ($wasPrimary && $addressableId && $addressableType) {
+                $nextAddress = Address::where('addressable_id', $addressableId)
+                    ->where('addressable_type', $addressableType)
+                    ->first();
+
+                if ($nextAddress) {
+                    $nextAddress->update(['is_primary' => true]);
+                }
             }
         });
     }

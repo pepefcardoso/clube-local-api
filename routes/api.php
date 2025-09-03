@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AddressController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\StaffUserProfileController;
@@ -25,15 +26,35 @@ Route::middleware(['auth:sanctum', 'ensure.active.user'])->group(function () {
 
     Route::get('/profile', [UserController::class, 'profile']);
 
+    // User routes
     Route::apiResource('users', UserController::class)->except(['create', 'edit']);
     Route::patch('/users/{user}/activate', [UserController::class, 'activate']);
     Route::patch('/users/{user}/deactivate', [UserController::class, 'deactivate']);
 
+    // Address routes
+    Route::apiResource('addresses', AddressController::class)->except(['create', 'edit']);
+    Route::patch('/addresses/{address}/set-primary', [AddressController::class, 'setPrimary']);
+
+    // Business-specific address routes
+    Route::prefix('businesses/{business}')->group(function () {
+        Route::get('/addresses', [AddressController::class, 'getBusinessAddresses']);
+        Route::post('/addresses', [AddressController::class, 'storeBusinessAddress']);
+    });
+
+    // Customer-specific address routes
+    Route::prefix('customers/{customer}')->group(function () {
+        Route::get('/addresses', [AddressController::class, 'getCustomerAddresses']);
+        Route::post('/addresses', [AddressController::class, 'storeCustomerAddress']);
+    });
+
+    // Staff routes
     Route::apiResource('staff', StaffUserProfileController::class)->except(['create', 'edit']);
     Route::patch('/staff/{staffUserProfile}/access-level', [StaffUserProfileController::class, 'updateAccessLevel']);
 
+    // Business routes
     Route::apiResource('businesses', BusinessController::class)->except(['create', 'edit']);
 
+    // Business-scoped routes
     Route::middleware(['check.business.access'])
         ->prefix('businesses/{business_id}')
         ->group(function () {
@@ -41,10 +62,12 @@ Route::middleware(['auth:sanctum', 'ensure.active.user'])->group(function () {
             Route::apiResource('customers', CustomerProfileController::class)->except(['create', 'edit']);
         });
 
+    // Platform plan routes
     Route::apiResource('platform-plans', PlatformPlanController::class)->except(['create', 'edit']);
     Route::patch('/platform-plans/{platformPlan}/activate', [PlatformPlanController::class, 'activate']);
     Route::patch('/platform-plans/{platformPlan}/deactivate', [PlatformPlanController::class, 'deactivate']);
     Route::patch('/platform-plans/{platformPlan}/toggle-featured', [PlatformPlanController::class, 'toggleFeatured']);
 
+    // Customer profile routes
     Route::apiResource('customers', CustomerProfileController::class)->except(['create', 'edit']);
 });

@@ -16,7 +16,6 @@ class CheckPlanLimits
 
         $user = Auth::user();
 
-        // Only check limits for business users
         if (!$user->isBusinessUser()) {
             return $next($request);
         }

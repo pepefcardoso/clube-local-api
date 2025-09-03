@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Address;
 
+use App\Enums\AddressType;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rules\Enum;
 
 class UpdateAddressRequest extends FormRequest
 {
@@ -25,7 +27,7 @@ class UpdateAddressRequest extends FormRequest
             'latitude' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
             'is_primary' => ['sometimes', 'boolean'],
-            'type' => ['sometimes', 'string', 'in:residential,commercial,billing,shipping'],
+            'type' => ['sometimes', new Enum(AddressType::class)],
         ];
     }
 
@@ -41,7 +43,6 @@ class UpdateAddressRequest extends FormRequest
             'country.size' => 'O país deve ter exatamente 2 caracteres.',
             'latitude.between' => 'A latitude deve estar entre -90 e 90.',
             'longitude.between' => 'A longitude deve estar entre -180 e 180.',
-            'type.in' => 'O tipo deve ser: residential, commercial, billing ou shipping.',
         ];
     }
 
@@ -58,5 +59,30 @@ class UpdateAddressRequest extends FormRequest
                 'state' => strtoupper($this->state)
             ]);
         }
+    }
+
+    public function withValidator($validator)
+    {
+        $validator->after(function ($validator) {
+            $address = $this->route('address');
+            $newType = $this->input('type');
+
+            if ($newType && $address->type->value !== $newType) {
+                $addressableId = $address->addressable_id;
+                $addressableType = $address->addressable_type;
+
+                if ($addressableId && $addressableType) {
+                    $existingAddress = \App\Models\Address::where('addressable_id', $addressableId)
+                        ->where('addressable_type', $addressableType)
+                        ->where('type', $newType)
+                        ->where('id', '!=', $address->id)
+                        ->exists();
+
+                    if ($existingAddress) {
+                        $validator->errors()->add('type', 'Já existe um endereço deste tipo para esta entidade.');
+                    }
+                }
+            }
+        });
     }
 }

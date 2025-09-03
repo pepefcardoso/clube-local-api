@@ -82,7 +82,6 @@ class UserController extends BaseController
     {
         $this->authorize('update', $user);
 
-        // Revoke all tokens when deactivating
         $user->tokens()->delete();
         $user->update(['is_active' => false]);
 

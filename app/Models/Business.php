@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Enums\AddressType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Enums\BusinessStatus;
 
@@ -54,6 +56,57 @@ class Business extends Model
     public function platformPlan(): BelongsTo
     {
         return $this->belongsTo(PlatformPlan::class);
+    }
+
+    public function addresses(): MorphMany
+    {
+        return $this->morphMany(Address::class, 'addressable');
+    }
+
+    public function primaryAddress()
+    {
+        return $this->morphOne(Address::class, 'addressable')->where('is_primary', true);
+    }
+
+    public function getAddressByType(AddressType $type)
+    {
+        return $this->addresses()->where('type', $type)->first();
+    }
+
+    public function billingAddress()
+    {
+        return $this->morphOne(Address::class, 'addressable')->where('type', AddressType::Billing);
+    }
+
+    public function commercialAddress()
+    {
+        return $this->morphOne(Address::class, 'addressable')->where('type', AddressType::Commercial);
+    }
+
+    public function shippingAddress()
+    {
+        return $this->morphOne(Address::class, 'addressable')->where('type', AddressType::Shipping);
+    }
+
+    public function hasAddressOfType(AddressType $type): bool
+    {
+        return $this->addresses()->where('type', $type)->exists();
+    }
+
+    public function setAddressForType(AddressType $type, array $addressData): Address
+    {
+        $addressData['type'] = $type;
+        $addressData['addressable_id'] = $this->id;
+        $addressData['addressable_type'] = static::class;
+
+        $existingAddress = $this->addresses()->where('type', $type)->first();
+
+        if ($existingAddress) {
+            $existingAddress->update($addressData);
+            return $existingAddress;
+        }
+
+        return $this->addresses()->create($addressData);
     }
 
     public function scopeActive($query)
